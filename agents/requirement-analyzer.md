@@ -41,20 +41,20 @@ a domain, state the inference explicitly so it can be verified.
 
 You're invoked with an optional `--docx` flag plus any extra instructions
 the user typed. **There is no filename argument** — this project has
-exactly one configured requirement source (the `requirementReading`
-vault), analyzed as a whole every run.
+exactly one requirement source (the attached folder's `Requirements/`
+subfolder), analyzed as a whole every run.
 
 Before choosing a mode, establish currency once — every mode below reads
 its result rather than re-deriving it:
 
 1. Run `bash ./.qa-orchestrator parsing.reading_vault_fetch`. It combines
-   every `.md` under `requirementReading.obsidianPath` into
+   every `.md` under the attached folder's `Requirements/` subfolder into
    `output/requirement-analysis/<doc-name>-source.md`. Output line 1 is
-   `<doc-name>` (use it for every output path this run, including step 2
-   below and step 1 of the Process); line 2 names the vault path and file
-   count. It exits non-zero and prints why if the path isn't configured,
-   doesn't exist, or has no `.md` files — relay that plainly and stop;
-   there's nothing to analyze.
+   `<doc-name>` (the attached folder's name — use it for every output path
+   this run, including step 2 below and step 1 of the Process); line 2 names
+   the source folder and file count. It exits non-zero and prints why if
+   there's no `Requirements/` folder or it has no `.md` files — relay that
+   plainly and stop; there's nothing to analyze.
 2. Run `bash ./.qa-orchestrator validation.analysis_currency "<doc-name>"`.
    **Exit 0** ("changed: …") means the source is newer than the existing
    analysis, or there is no existing analysis yet — something genuinely
@@ -146,7 +146,7 @@ run. Don't re-run either check here; reuse that `<doc-name>`.
    Distinct from the **reading** vault in step 5 (a different, unrelated
    source). This uses the Knowledge Base Service
    (`orchestrator/knowledge_base/service.py`), a persistent process holding
-   `knowledgeBase.obsidianPath` in memory — not `knowledge_base.search`,
+   the attached folder's `Knowledge Base/` subfolder in memory — not `knowledge_base.search`,
    which stays reserved for step 5's reading-vault fallback. **Never fall
    back to `knowledge_base.search --source vault` here even if it's
    familiar** — that path still exists for other agents, but this step only
@@ -160,12 +160,12 @@ run. Don't re-run either check here; reuse that `<doc-name>`.
       self-healing is yours to do automatically — unlike `/kb-status` and
       the other three commands a human runs directly, which always report
       the service's exact state and never start/load anything on their own.
-      If `load` lands in `kb_state: ERROR` (a *configured* path that's
-      missing or unreadable, not merely unset — a blank path is ordinary,
-      per `config/settings.json`'s own docs), note the error in
-      `meta.extraction_manifest` so a persistently broken path doesn't stay
-      silently invisible run after run, then proceed on requirement text
-      alone.
+      If `load` lands in `kb_state: ERROR`: when the error says there's no
+      `Knowledge Base/` folder, that's ordinary (a knowledge base is
+      optional) — just proceed on requirement text alone. Any other error
+      (the folder exists but couldn't be read), note it in
+      `meta.extraction_manifest` so it doesn't stay silently invisible run
+      after run, then proceed on requirement text alone.
    2. **Fetch the catalog once**: `... service catalog`. An empty result
       (nothing configured, or the vault has no notes) means there's nothing
       to investigate — proceed on requirement text alone, exactly like an
@@ -362,8 +362,8 @@ run. Don't re-run either check here; reuse that `<doc-name>`.
 
 16. **Generate the deliverables.** Always: `bash ./.qa-orchestrator
     generation.md_report_writer "<doc-name>"` → the human-facing report at
-    `<doc-name>-analysis.md`, which a reviewer reads before
-    `/handoff-requirement`. This runs regardless of `--docx`. It archives
+    `<doc-name>-analysis.md`, which a reviewer reads in place. This runs
+    regardless of `--docx`. It archives
     whatever `.md` it's about to overwrite into
     `output/requirement-analysis/history/` first, named with the version
     and timestamp that copy carried — no separate action needed here.
@@ -482,16 +482,16 @@ not re-analyze the whole document.
   and clarification-update mode. Conversely, the `.md`/`.docx` reports are
   **only** ever produced by the deterministic writer scripts — never use
   `Write`/`Edit` on them yourself. The one deliberate exception is
-  Clarification-update mode's step 3: a vault note under
-  `requirementReading.obsidianPath` is external input, not a deliverable
+  Clarification-update mode's step 3: a note under `Requirements/` is
+  external input, not a deliverable
   this project renders, so `Edit`ing it in place (after
   `parsing.vault_writeback snapshot` succeeds) is exactly right there —
   it's the only path that reaches it at all.
 - Follow the output-structure skill for all file naming, field/section
   conventions, and sort order.
 - **Step 3's Knowledge Base Service calls only ever touch
-  `knowledgeBase.obsidianPath`** — never `requirementReading.obsidianPath`,
-  which stays exactly as before (step 5's `knowledge_base.search --source
+  `Knowledge Base/`** — never `Requirements/`, which stays exactly as
+  before (step 5's `knowledge_base.search --source
   reading`, and `parsing.reading_vault_fetch`'s requirement-input role).
   Self-healing a `STOPPED`/`NOT_LOADED` service is something *this agent*
   does automatically as part of its own investigation; never do the same

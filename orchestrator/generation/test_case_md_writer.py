@@ -12,12 +12,8 @@ output/test-cases/<doc-name>-test-cases.md.
 This is the deliverable a human actually reviews after a test-case
 generation run -- always generated, unlike the Zephyr CSV
 (`zephyr_export.py`, opt-in via `--csv`) and the Excel review workbook
-(same script, opt-in via `--xlsx`). Once satisfied, the reviewer hands the
-approved `.md` off to this project's configured Obsidian destination via
-`/handoff-test-cases` (`generation.requirement_handoff`, `--target
-test-cases`) -- the exact same always-md/opt-in-extra-format/dedicated-
-handoff shape the requirement-analysis report and the Test Plan already
-have.
+(same script, opt-in via `--xlsx`) -- the same always-md/opt-in-extra-format
+shape the requirement-analysis report and the Test Plan already have.
 
 Deliberately generated the same way the Test Plan's Markdown report is:
 deterministically, from the test-cases JSON (the single source of truth for

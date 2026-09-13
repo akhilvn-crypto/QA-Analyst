@@ -30,9 +30,11 @@
 
 set -uo pipefail
 
+PY="$(command -v python3 >/dev/null 2>&1 && python3 -c "" >/dev/null 2>&1 && echo python3 || echo python)"
+
 input="$(cat)"
 
-command_str="$(printf '%s' "$input" | python -c '
+command_str="$(printf '%s' "$input" | "$PY" -c '
 import json, sys
 try:
     data = json.load(sys.stdin)
@@ -49,7 +51,7 @@ case "$command_str" in
     ;;
 esac
 
-docx_path="$(printf '%s' "$input" | python -c '
+docx_path="$(printf '%s' "$input" | "$PY" -c '
 import json, sys
 try:
     data = json.load(sys.stdin)
@@ -61,7 +63,7 @@ except Exception:
 ')"
 
 if [ -z "$docx_path" ] || [ ! -f "$docx_path" ]; then
-  python -c '
+  "$PY" -c '
 import json
 print(json.dumps({
     "hookSpecificOutput": {
@@ -73,7 +75,7 @@ print(json.dumps({
   exit 0
 fi
 
-python -c '
+"$PY" -c '
 import json, sys, os, tempfile, shutil
 
 def _report(message):

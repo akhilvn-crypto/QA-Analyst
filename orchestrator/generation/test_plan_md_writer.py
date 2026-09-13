@@ -8,12 +8,9 @@ output/test-plan/<doc-name>-test-plan.md.
 
 This is the deliverable a human actually reviews after a Test Plan run --
 always generated, unlike the Word report (`test_plan_docx_writer.py`,
-opt-in via `--docx`). Once satisfied, the reviewer hands the approved `.md`
-off to this project's configured Obsidian destination via
-`/handoff-test-plan` (`generation.requirement_handoff`, `--target
-test-plan`) -- the exact same always-md/opt-in-docx/dedicated-handoff shape
-`md_report_writer.py`/`docx_report_writer.py`/`/handoff-requirement`
-already have for the requirement-analysis report.
+opt-in via `--docx`) -- the same always-md/opt-in-docx shape
+`md_report_writer.py`/`docx_report_writer.py` already have for the
+requirement-analysis report.
 
 Deliberately generated the same way the docx report is: deterministically,
 from the test-plan JSON (the single source of truth), never authored by

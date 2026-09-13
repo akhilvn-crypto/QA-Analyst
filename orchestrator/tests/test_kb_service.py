@@ -7,9 +7,7 @@ previously good KB, a load never exposes a half-built one, and
 "has content" (even stale content, per the spec's own "use the currently
 active valid Knowledge Base if one exists" rule)."""
 
-import json
 import threading
-import time
 
 import pytest
 
@@ -23,34 +21,24 @@ from orchestrator.models.knowledge_base_service import (
     KB_LOADING,
     KB_NOT_LOADED,
 )
-from orchestrator.utils import config
+from orchestrator.utils import workspace
 
 
 @pytest.fixture
-def blank_config(monkeypatch, tmp_path):
-    cfg_path = tmp_path / "settings.json"
-    cfg_path.write_text(json.dumps({}), encoding="utf-8")
-    monkeypatch.setattr(config, "config_path", lambda: cfg_path)
-    config.load_config.cache_clear()
-    yield
-    config.load_config.cache_clear()
+def empty_workspace(monkeypatch, tmp_path):
+    """An attached folder with no `Knowledge Base/` subfolder."""
+    monkeypatch.setattr(workspace, "workspace_root", lambda: tmp_path)
+    return tmp_path
 
 
 @pytest.fixture
 def vault(monkeypatch, tmp_path):
-    """A configured `knowledgeBase.obsidianPath`, isolated from this repo's
-    own config/settings.json -- same fixture shape as test_search.py's
-    `vaults`."""
-    kb = tmp_path / "kb"
+    """An attached folder with a `Knowledge Base/` subfolder -- same fixture
+    shape as test_search.py's `vaults`."""
+    kb = tmp_path / "Knowledge Base"
     kb.mkdir()
-    cfg_path = tmp_path / "settings.json"
-    cfg_path.write_text(
-        json.dumps({"knowledgeBase": {"obsidianPath": str(kb)}}), encoding="utf-8"
-    )
-    monkeypatch.setattr(config, "config_path", lambda: cfg_path)
-    config.load_config.cache_clear()
-    yield kb, cfg_path
-    config.load_config.cache_clear()
+    monkeypatch.setattr(workspace, "workspace_root", lambda: tmp_path)
+    return kb, tmp_path
 
 
 # --- build_catalog_entry -----------------------------------------------------
@@ -117,45 +105,25 @@ def test_load_populates_kb_and_catalog(vault):
     assert kb.get_catalog()[0]["name"] == "business_rules.md"
 
 
-def test_load_with_unconfigured_path_is_an_error_with_no_content(blank_config):
+def test_load_without_a_knowledge_base_folder_is_an_error_with_no_content(empty_workspace):
     kb = service.KnowledgeBaseService()
     status = kb.load()
 
     assert status.kb_state == KB_ERROR
-    assert status.error
+    assert "Knowledge Base" in status.error
     assert kb.has_content() is False
 
 
-def test_load_with_missing_directory_is_an_error(monkeypatch, tmp_path):
-    cfg_path = tmp_path / "settings.json"
-    cfg_path.write_text(
-        json.dumps({"knowledgeBase": {"obsidianPath": str(tmp_path / "gone")}}),
-        encoding="utf-8",
-    )
-    monkeypatch.setattr(config, "config_path", lambda: cfg_path)
-    config.load_config.cache_clear()
-    try:
-        kb = service.KnowledgeBaseService()
-        status = kb.load()
-        assert status.kb_state == KB_ERROR
-        assert "does not exist" in status.error
-    finally:
-        config.load_config.cache_clear()
-
-
 def test_failed_reload_preserves_the_previous_good_kb(vault):
-    folder, cfg_path = vault
+    folder, _ = vault
     (folder / "a.md").write_text("Original content.\n", encoding="utf-8")
 
     kb = service.KnowledgeBaseService()
     first = kb.load()
     assert first.kb_state == KB_LOADED
 
-    # Break the configured path, then reload.
-    cfg_path.write_text(
-        json.dumps({"knowledgeBase": {"obsidianPath": str(folder.parent / "gone")}}),
-        encoding="utf-8",
-    )
+    # Remove the folder, then reload.
+    folder.rename(folder.parent / "gone")
     second = kb.load()
 
     assert second.kb_state == KB_ERROR
@@ -166,26 +134,21 @@ def test_failed_reload_preserves_the_previous_good_kb(vault):
     assert kb.get_catalog()[0]["name"] == "a.md"
 
 
-def test_reload_picks_up_a_config_change_without_a_restart(vault):
-    """The server process is long-lived, so `load_config`'s cache must be
-    cleared on every call -- otherwise a mid-session edit to
-    knowledgeBase.obsidianPath would be invisible until the process is
-    restarted, unlike every other orchestrator invocation (always a fresh,
-    cold-cache process)."""
-    folder, cfg_path = vault
+def test_reload_picks_up_a_folder_change_without_a_restart(vault):
+    """The server process is long-lived, so the `Knowledge Base/` folder
+    must be resolved on every load -- a folder swapped in mid-session has to
+    be visible without restarting the service."""
+    folder, _ = vault
     (folder / "a.md").write_text("first vault\n", encoding="utf-8")
-
-    other = folder.parent / "other-kb"
-    other.mkdir()
-    (other / "b.md").write_text("second vault\n", encoding="utf-8")
 
     kb = service.KnowledgeBaseService()
     kb.load()
     assert kb.get_file("a.md") == "first vault\n"
 
-    cfg_path.write_text(
-        json.dumps({"knowledgeBase": {"obsidianPath": str(other)}}), encoding="utf-8"
-    )
+    folder.rename(folder.parent / "old-kb")
+    replacement = folder.parent / "knowledge-base"
+    replacement.mkdir()
+    (replacement / "b.md").write_text("second vault\n", encoding="utf-8")
     kb.load()
 
     assert kb.get_file("b.md") == "second vault\n"
@@ -319,15 +282,12 @@ def test_handle_file_serves_stale_content_after_a_failed_reload(vault):
     """Per the spec: a failed reload preserves the previous KB, and
     /catalog and /file should keep serving it rather than reporting
     unavailable just because the *last* load attempt failed."""
-    folder, cfg_path = vault
+    folder, _ = vault
     (folder / "a.md").write_text("still here\n", encoding="utf-8")
     kb = service.KnowledgeBaseService()
     kb.load()
 
-    cfg_path.write_text(
-        json.dumps({"knowledgeBase": {"obsidianPath": str(folder.parent / "gone")}}),
-        encoding="utf-8",
-    )
+    folder.rename(folder.parent / "gone")
     reload_status = kb.load()
     assert reload_status.kb_state == KB_ERROR
 

@@ -27,20 +27,18 @@
 # Also ensures orchestrator's own Python dependencies are installed --
 # nothing else in the plugin-install flow does this.
 #
-# Deliberately does NOT scaffold `output/` -- there is no dedicated setup
-# command for this project's workspace folders anymore. There is also no
-# `requirements/` folder to scaffold: requirement input comes straight from
-# the client's own `.md` notes in the Obsidian vault configured at
-# `requirementReading.obsidianPath` (`orchestrator/utils/config.py`), read
-# fresh by `parsing.reading_vault_fetch` on every `/analyse-requirement`
-# run. `output/` self-creates via every writer's own
-# `path.parent.mkdir(parents=True, exist_ok=True)`. The knowledge base needs
-# no folder here at all: `knowledge_base.search` reads the vault configured
-# in `config/settings.json` directly, and there is no local index to
-# create or keep in sync.
-# `config/branding/` is checked into this project directly (no seeding
-# step needed) -- replace its two logo files in place with the client's
-# own branding.
+# Deliberately does NOT scaffold anything in the attached folder. There is
+# no settings file: `Requirements/`, `Knowledge Base/`, `Branding/` and
+# `Project Info.md` are the user's own vault content, discovered by
+# convention (`orchestrator/utils/workspace.py`). `output/` self-creates via
+# every writer's own `path.parent.mkdir(parents=True, exist_ok=True)`, and
+# default logos ship bundled under this plugin's `assets/branding/`.
+#
+# Python resolution: Cowork runs sessions in a Linux sandbox where only
+# `python3` may exist, while Windows hosts usually only have `python`. The
+# first working interpreter is baked into the shim as PYTHON_EXE (read by
+# scripts/run.sh). Dependency installs retry with `--user` and then
+# `--break-system-packages` for PEP 668 "externally managed" environments.
 #
 # Contract: always "allow" (silent exit 0) -- this is a pure side effect and
 # must never block whatever triggered it, or fail loudly on its own account.
@@ -59,10 +57,21 @@ fi
 SHIM=".qa-orchestrator"
 DEPS_MARKER=".qa-orchestrator-deps-ok"
 
+PY=""
+for candidate in python3 python; do
+  if "$candidate" -c "import sys; sys.exit(0 if sys.version_info >= (3, 10) else 1)" >/dev/null 2>&1; then
+    PY="$candidate"
+    break
+  fi
+done
+if [ -z "$PY" ]; then
+  exit 0
+fi
+
 # --- 1. (Re)write the cwd-relative shim if missing or pointing at a
-#        different plugin install root (e.g. if the plugin is ever
-#        reinstalled/moved). ---
+#        different plugin install root / interpreter. ---
 expected_shim="#!/usr/bin/env bash
+export PYTHON_EXE=\"\${PYTHON_EXE:-$PY}\"
 exec bash \"$PLUGIN_ROOT/scripts/run.sh\" \"\$@\"
 "
 
@@ -87,9 +96,11 @@ if [ -f "$DEPS_MARKER" ]; then
 fi
 
 if [ "$recorded_root" != "$PLUGIN_ROOT" ]; then
-  if python -c "import docx, openpyxl" >/dev/null 2>&1; then
-    printf '%s' "$PLUGIN_ROOT" > "$DEPS_MARKER" 2>/dev/null || true
-  elif python -m pip install -q -r "$PLUGIN_ROOT/orchestrator/requirements.txt" >/dev/null 2>&1; then
+  REQS="$PLUGIN_ROOT/orchestrator/requirements.txt"
+  if "$PY" -c "import docx, openpyxl" >/dev/null 2>&1 \
+    || "$PY" -m pip install -q -r "$REQS" >/dev/null 2>&1 \
+    || "$PY" -m pip install -q --user -r "$REQS" >/dev/null 2>&1 \
+    || "$PY" -m pip install -q --user --break-system-packages -r "$REQS" >/dev/null 2>&1; then
     printf '%s' "$PLUGIN_ROOT" > "$DEPS_MARKER" 2>/dev/null || true
   fi
   # A failed install just means the next real orchestrator invocation fails

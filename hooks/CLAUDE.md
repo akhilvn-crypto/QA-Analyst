@@ -6,11 +6,15 @@ Registered in `hooks/hooks.json` (plugin form — not a project
 
 | Hook | Event | Does |
 |---|---|---|
-| `plugin-bootstrap` | SessionStart **and** PreToolUse `Bash\|PowerShell` | Writes the `./.qa-orchestrator` shim, installs Python deps once, gitignores those artifacts plus the Knowledge Base Service's `.qa-kb-service/` state dir (pre-emptively — it doesn't create that dir itself). Pure side effect, always silent exit 0 |
+| `plugin-bootstrap` | SessionStart **and** PreToolUse `Bash\|PowerShell` | Picks a working interpreter (`python3`, then `python`) and bakes it into the `./.qa-orchestrator` shim, installs Python deps once (retrying `--user` / `--break-system-packages` for Cowork's Linux sandbox), gitignores those artifacts plus the Knowledge Base Service's `.qa-kb-service/` state dir (pre-emptively — it doesn't create that dir itself). Pure side effect, always silent exit 0 |
 | `snapshot-output` | PreToolUse `Write\|Edit` | Archives an existing output JSON to `history/<name>-v<version>.json` before overwrite. Never denies |
 | `validate-output` | PostToolUse `Write\|Edit` | Runs `validation.validate` on a written output JSON. **Blocks** on errors, informs on warnings, silent when clean |
 | `execution-log` | PostToolUse `Write\|Edit` | Records who/when an output JSON revision happened to a sibling `execution-log/` folder, via `orchestrator.utils.execution_log`. Never denies |
-| `format-report` | PostToolUse `Bash\|PowerShell` | After a docx writer runs, renders to PDF/JPEG via Word COM to confirm pagination, then discards. Smoke test only — never changes formatting |
+| `format-report` | PostToolUse `Bash\|PowerShell` | After a docx writer runs, renders to PDF/JPEG via Word COM to confirm pagination, then discards. Smoke test only — never changes formatting. Silently skips where Word isn't available (e.g. Cowork's Linux sandbox) |
+
+Every hook resolves its interpreter as `python3` if it runs, else
+`python` — Cowork's sandbox may only have the former, Windows hosts only
+the latter.
 
 ## Environment
 

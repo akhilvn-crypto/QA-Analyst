@@ -1,7 +1,7 @@
 """Companion to `parsing.reading_vault_fetch`, in the opposite direction:
 once `/apply-clarifications` has a client's confirmed answer to a gap, this
-module snapshots the *originating* vault note under
-`requirementReading.obsidianPath` before the requirement-analyzer agent
+module snapshots the *originating* note under the attached folder's
+`Requirements/` subfolder before the requirement-analyzer agent
 rewrites the gap's `source_excerpt` passage in it via `Edit`.
 
 Only the snapshot step lives here -- the actual rewrite is authored prose
@@ -25,8 +25,8 @@ Usage:
     python -m orchestrator.parsing.vault_writeback snapshot "<relative-file-path>"
 
 Prints the absolute snapshot path on success and exits 0. Exits 1 -- with
-the reason on stderr -- when `requirementReading.obsidianPath` isn't
-configured, the target file doesn't exist under it (or the given path
+the reason on stderr -- when the attached folder has no `Requirements/`
+subfolder, the target file doesn't exist under it (or the given path
 resolves outside the vault entirely), or the copy itself fails. Any exit 1
 here means: do not edit the note -- the caller falls back to recording the
 clarification in the analysis JSON only.
@@ -37,7 +37,7 @@ import sys
 import time
 from pathlib import Path
 
-from orchestrator.utils.config import requirement_reading_vault_path
+from orchestrator.utils.workspace import requirements_path
 
 
 def snapshot(vault: Path, relative_file_path: str) -> Path:
@@ -79,21 +79,18 @@ def main() -> None:
         "snapshot", help="Archive a vault note's current content to .history/ before editing it."
     )
     p_snapshot.add_argument(
-        "relative_file_path", help="Path to the note, relative to requirementReading.obsidianPath."
+        "relative_file_path", help="Path to the note, relative to the Requirements/ folder."
     )
 
     args = parser.parse_args()
 
-    vault = requirement_reading_vault_path()
+    vault = requirements_path()
     if vault is None:
         print(
-            "requirementReading.obsidianPath is not configured in "
-            "config/settings.json -- there is no vault note to snapshot.",
+            "No Requirements/ folder found in the attached folder -- "
+            "there is no requirement note to snapshot.",
             file=sys.stderr,
         )
-        sys.exit(1)
-    if not vault.is_dir():
-        print(f"Configured requirementReading.obsidianPath does not exist: {vault}", file=sys.stderr)
         sys.exit(1)
 
     try:

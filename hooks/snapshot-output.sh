@@ -17,7 +17,9 @@
 
 set -uo pipefail
 
-cat | python -c '
+PY="$(command -v python3 >/dev/null 2>&1 && python3 -c "" >/dev/null 2>&1 && echo python3 || echo python)"
+
+cat | "$PY" -c '
 import json, re, shutil, sys
 from pathlib import Path
 

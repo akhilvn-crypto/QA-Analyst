@@ -19,6 +19,6 @@ analysis JSON's stem minus `-analysis.json`) and whether each flag was
 given.
 
 The JSON and Markdown under `output/test-cases/` are always produced — the
-Markdown is the file to review before `/handoff-test-cases`. The
+Markdown is the file to review. The
 Zephyr-import CSV and the Excel review workbook only when their flag is
 given.

@@ -17,7 +17,7 @@ that only if you're debugging an export.
 | File | When | Written by |
 |---|---|---|
 | `<doc-name>-test-cases.json` | always — source of truth | you |
-| `<doc-name>-test-cases.md` | always — the human-review report for `/handoff-test-cases` | `generation.test_case_md_writer` |
+| `<doc-name>-test-cases.md` | always — the human-review report | `generation.test_case_md_writer` |
 | `<doc-name>-test-cases.csv` | opt-in `--csv` — strict Zephyr import, one row per step | `generation.zephyr_export` |
 | `<doc-name>-test-cases.xlsx` | opt-in `--xlsx` — three-sheet human execution workbook | `generation.zephyr_export` |
 

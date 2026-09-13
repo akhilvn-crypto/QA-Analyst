@@ -24,5 +24,5 @@ Invoke the `test-plan-generator` subagent with the resolved `<doc-name>`,
 whether `--docx` was given, and the extra instructions.
 
 The JSON and Markdown under `output/test-plan/` are always produced — the
-Markdown is the file to review before `/handoff-test-plan`. The Word report
+Markdown is the file to review. The Word report
 only when `--docx` is given.

@@ -8,9 +8,8 @@ output/requirement-analysis/<doc-name>-analysis.md.
 
 This is the deliverable a human actually reviews after an analysis run --
 always generated, unlike the Word report (`docx_report_writer.py`, opt-in
-via `--docx`). Once satisfied, the reviewer hands the approved `.md` off to
-this project's configured Obsidian destination via `/handoff-requirement`
-(`generation.requirement_handoff`).
+via `--docx`). It is written straight into the attached folder's `output/`,
+where the reviewer already works -- there is no separate handoff step.
 
 Before overwriting an existing `.md`, this writer archives it to a sibling
 `history/` folder as `<doc-name>-analysis-v<version>_<timestamp>.md` --

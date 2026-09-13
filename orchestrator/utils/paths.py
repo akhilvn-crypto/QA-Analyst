@@ -12,27 +12,29 @@ between, unlike this system's pre-plugin, multi-project-per-repo form.
 `REPO_ROOT` is a different thing entirely: it's this *plugin's own* install
 directory, resolved via `__file__` (so it's correct regardless of the
 caller's `cwd`), used only for bundled, read-only assets shipped with the
-plugin itself (`orchestrator/templates/`, and as a fallback for
-`config/branding/` -- see `header_logo_path`/`project_logo_path` below) --
+plugin itself (`orchestrator/templates/`, and the default logos under
+`assets/branding/` -- see `header_logo_path`/`project_logo_path` below) --
 never for anything workspace/project-specific.
+
+User inputs inside the workspace (`Requirements/`, `Knowledge Base/`,
+`Branding/`, `Project Info.md`) are resolved by convention in
+`orchestrator.utils.workspace` -- there is no settings file.
 """
 
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-BRANDING_ASSETS_ROOT = REPO_ROOT / "config" / "branding"
+BRANDING_ASSETS_ROOT = REPO_ROOT / "assets" / "branding"
 WORKSPACE_ROOT = Path.cwd()
 
 
 def requirement_source_md_path(doc_name: str) -> Path:
-    """The combined markdown staged from every `.md` file under this
-    project's configured `requirementReading.obsidianPath` vault --
-    produced fresh by `parsing.reading_vault_fetch` on every
-    `/analyse-requirement` run. This is the sole requirement input source
-    now; there is no `requirements/` folder or per-file docx/xlsx
-    conversion step anymore. `<doc_name>` is always the vault folder's own
-    name, since every `.md` file found under it is combined into one
-    requirement set rather than selected individually."""
+    """The combined markdown staged from every `.md` file under the
+    attached folder's `Requirements/` subfolder -- produced fresh by
+    `parsing.reading_vault_fetch` on every `/analyse-requirement` run.
+    `<doc_name>` is always the attached folder's own name, since every
+    `.md` file found under `Requirements/` is combined into one requirement
+    set rather than selected individually."""
     return output_dir() / f"{doc_name}-source.md"
 
 
@@ -50,8 +52,7 @@ def analysis_docx_path(doc_name: str) -> Path:
 
 def analysis_md_path(doc_name: str) -> Path:
     """The human-review Markdown report -- always generated, unlike the
-    docx (opt-in via `--docx`). This is the file a reviewer reads before
-    calling `/handoff-requirement`."""
+    docx (opt-in via `--docx`). This is the file a reviewer reads."""
     return output_dir() / f"{doc_name}-analysis.md"
 
 
@@ -74,8 +75,8 @@ def test_plan_json_path(doc_name: str) -> Path:
 
 def test_plan_md_path(doc_name: str) -> Path:
     """The human-review Markdown Test Plan -- always generated, unlike the
-    docx (opt-in via `--docx`). This is the file a reviewer reads before
-    calling `/handoff-test-plan`. Same doc-name-first, docx-opt-in
+    docx (opt-in via `--docx`). This is the file a reviewer reads. Same
+    doc-name-first, docx-opt-in
     relationship `analysis_md_path`/`analysis_docx_path` already have."""
     return output_dir("test-plan") / f"{doc_name}-test-plan.md"
 
@@ -91,7 +92,7 @@ def test_cases_json_path(doc_name: str) -> Path:
 def test_cases_md_path(doc_name: str) -> Path:
     """The human-review Markdown test-case report -- always generated,
     unlike the CSV/XLSX exports (opt-in via `--csv`/`--xlsx`). This is the
-    file a reviewer reads before calling `/handoff-test-cases`. Same
+    file a reviewer reads. Same
     doc-name-first, opt-in-extra-format relationship
     `analysis_md_path`/`analysis_docx_path` and
     `test_plan_md_path`/`test_plan_docx_path` already have."""
@@ -145,22 +146,23 @@ def kb_service_log_path() -> Path:
     return kb_service_dir() / "service.log"
 
 
+def _logo_path(filename: str) -> Path:
+    from orchestrator.utils.workspace import branding_path
+
+    override_dir = branding_path()
+    if override_dir is not None and (override_dir / filename).is_file():
+        return override_dir / filename
+    return BRANDING_ASSETS_ROOT / filename
+
+
 def header_logo_path() -> Path:
-    """`plugin-bootstrap.sh` seeds a no-clobber copy of this asset into the
-    workspace at session start specifically so the user can replace it with
-    this client's own logo -- prefer that copy, and only fall back to the
-    plugin's bundled default (e.g. for standalone/test invocations that
-    never ran the bootstrap hook) if it's missing."""
-    workspace_copy = WORKSPACE_ROOT / "config" / "branding" / "header-logo.png"
-    if workspace_copy.exists():
-        return workspace_copy
-    return BRANDING_ASSETS_ROOT / "header-logo.png"
+    """The attached folder's `Branding/header-logo.png` when present, else
+    the plugin's bundled default -- nothing needs to exist in the workspace
+    for reports to render."""
+    return _logo_path("header-logo.png")
 
 
 def project_logo_path() -> Path:
-    """See `header_logo_path` -- same workspace-copy-first, bundled-fallback
+    """See `header_logo_path` -- same override-first, bundled-fallback
     resolution, for the project logo asset."""
-    workspace_copy = WORKSPACE_ROOT / "config" / "branding" / "project-logo.png"
-    if workspace_copy.exists():
-        return workspace_copy
-    return BRANDING_ASSETS_ROOT / "project-logo.png"
+    return _logo_path("project-logo.png")

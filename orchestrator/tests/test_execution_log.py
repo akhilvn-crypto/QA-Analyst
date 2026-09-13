@@ -6,19 +6,16 @@ import json
 
 import pytest
 
-from orchestrator.utils import config, execution_log
+from orchestrator.utils import execution_log, workspace
 
 
 @pytest.fixture
 def isolated_config(monkeypatch, tmp_path):
-    """Same isolation `test_config.py` uses -- point config_path() at a
-    scratch file so `operator_info()` never reads this repo's own
-    config/settings.json."""
-    cfg_path = tmp_path / "settings.json"
-    monkeypatch.setattr(config, "config_path", lambda: cfg_path)
-    config.load_config.cache_clear()
-    yield cfg_path
-    config.load_config.cache_clear()
+    """Point the workspace root at a scratch folder so `operator_info()`
+    reads (or doesn't find) a `Project Info.md` there, never the real cwd's.
+    Yields that note's path, not yet created."""
+    monkeypatch.setattr(workspace, "workspace_root", lambda: tmp_path)
+    return tmp_path / workspace.PROJECT_INFO_FILENAME
 
 
 def _entries(deliverable_dir):
@@ -57,16 +54,12 @@ def test_record_uses_tbd_placeholder_when_operator_unconfigured(tmp_path, isolat
 
 def test_record_uses_configured_operator_identity(tmp_path, isolated_config):
     isolated_config.write_text(
-        json.dumps(
-            {
-                "operator": {
-                    "name": "Akhil VN",
-                    "designation": "QA Lead",
-                    "projectName": "LinkGrid",
-                    "projectId": "LG-001",
-                }
-            }
-        ),
+        "---\n"
+        "name: Akhil VN\n"
+        "designation: QA Lead\n"
+        'projectName: "LinkGrid"\n'
+        "projectId: LG-001\n"
+        "---\n",
         encoding="utf-8",
     )
 

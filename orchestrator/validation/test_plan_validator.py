@@ -21,9 +21,8 @@ TBD_QA = "TBD – To be added by QA"
 # allowed in a deliverable. A plugin install has no `projects/<name>/`
 # wrapper anymore (a workspace is exactly one project), so the internal
 # folders themselves (output/, knowledge-base/, automation/) are the leak
-# signal now. There is no requirements/ folder anymore either — requirement
-# input comes straight from the configured requirementReading Obsidian
-# vault (see orchestrator/utils/config.py), never a workspace-relative path.
+# signal now. Requirement input comes from the attached folder's
+# Requirements/ notes (see orchestrator/utils/workspace.py).
 _INTERNAL_PATH = re.compile(r"\b(?:output|knowledge-base|automation)[/\\]\S+")
 
 # An Integration Sequence item that is nothing but an identifier (REQ-021,

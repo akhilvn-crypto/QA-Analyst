@@ -6,7 +6,7 @@ import json
 
 import pytest
 
-from orchestrator.utils import config
+from orchestrator.utils import workspace
 from orchestrator.utils.md_history import (
     bullet_version_extractor,
     release_history_version_extractor,
@@ -18,13 +18,11 @@ from orchestrator.utils.md_history import (
 def isolated_config(monkeypatch, tmp_path_factory):
     """Points operator_info() (read by execution_log.record, which
     snapshot_previous_md now calls whenever `new_content` is given) at a
-    scratch settings file, so these tests never touch this repo's own
-    config/settings.json."""
-    cfg_path = tmp_path_factory.mktemp("cfg") / "settings.json"
-    monkeypatch.setattr(config, "config_path", lambda: cfg_path)
-    config.load_config.cache_clear()
-    yield cfg_path
-    config.load_config.cache_clear()
+    scratch workspace folder, so these tests never read the real cwd's
+    `Project Info.md`."""
+    root = tmp_path_factory.mktemp("workspace")
+    monkeypatch.setattr(workspace, "workspace_root", lambda: root)
+    return root
 
 
 def test_bullet_version_extractor_reads_the_labeled_bullet():

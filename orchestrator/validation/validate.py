@@ -41,7 +41,7 @@ def _load(path: Path):
 def _source_file(workspace_root: Path, doc_name: str) -> Path | None:
     """The combined requirement source for a doc-name — the markdown
     `parsing.reading_vault_fetch` stages from every `.md` file under the
-    configured requirementReading vault. `None` if it hasn't been
+    attached folder's `Requirements/`. `None` if it hasn't been
     generated (or the doc-name doesn't match one that has)."""
     source_path = (
         workspace_root / "output" / "requirement-analysis" / f"{doc_name}-source.md"

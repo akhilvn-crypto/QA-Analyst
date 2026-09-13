@@ -92,7 +92,7 @@ requirement document could state.
    NFR/compliance testing expectation typical for the domain). Consult
    before falling back to a TBD marker:
 
-   - **Domain-background vault** (`knowledgeBase.obsidianPath`). Served by
+   - **Domain-background vault** (the attached folder's `Knowledge Base/`). Served by
      the persistent Knowledge Base Service, never `knowledge_base.search` —
      deliberately: no vector search, embeddings, or chunking, and no
      excerpt either. A retrieved file always comes back **complete**.
@@ -103,8 +103,8 @@ requirement document could state.
         `... service load` if `kb_state` is `NOT_LOADED`; if `LOADING`,
         poll `status` a few times and, if it's still loading, fall back to
         the ordinary TBD discipline for every doubt this run. A `load`
-        landing in `kb_state: ERROR` (a *configured* path that's missing or
-        unreadable, not merely unset) means the same — fall back for the
+        landing in `kb_state: ERROR` (no `Knowledge Base/` folder, or one
+        that couldn't be read) means the same — fall back for the
         rest of this run rather than retrying `load` again.
      2. **Fetch the catalog once per run**: `... service catalog`, reused
         for every later doubt — never re-fetched. An empty result (nothing
@@ -121,10 +121,10 @@ requirement document could state.
         ordinary TBD discipline, same as an empty search result.
    - **Reading vault**: `bash ./.qa-orchestrator knowledge_base.search
      "<specific doubt terms>" --source reading` (from
-     `requirementReading.obsidianPath`, searched here at plan level, read
+     the attached folder's `Requirements/`, searched here at plan level, read
      straight off disk as ranked sections, no cap — every matching section
      comes back, best first). `[]` means that source has no such note, or
-     isn't configured at all — fall back to the ordinary TBD discipline. A
+     the folder doesn't exist — fall back to the ordinary TBD discipline. A
      result flagged `truncated` is a match-centred excerpt with `[...]`
      where content was dropped: never quote across one, and `Read` the
      note at the result's `path` if you need what's between.
@@ -219,7 +219,7 @@ requirement document could state.
 14. **Generate the Markdown report** — always: `bash ./.qa-orchestrator
     generation.test_plan_md_writer "<doc-name>"` →
     `output/test-plan/<doc-name>-test-plan.md`, the file a reviewer reads
-    before `/handoff-test-plan`. Runs regardless of `--docx`.
+    in place. Runs regardless of `--docx`.
 
 15. **Generate the Word report — only if `--docx` was given**: `bash
     ./.qa-orchestrator generation.test_plan_docx_writer "<doc-name>"`.

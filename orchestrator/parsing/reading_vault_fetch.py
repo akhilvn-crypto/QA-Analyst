@@ -1,12 +1,12 @@
 """Sole source for `/analyse-requirement`'s requirement input: combines
-every `.md` file found under this project's configured **reading** vault
-(`requirementReading.obsidianPath`) into one staged markdown document at
+every `.md` file found under the attached folder's `Requirements/`
+subfolder (`orchestrator.utils.workspace.requirements_path`) into one
+staged markdown document at
 `output/requirement-analysis/<doc-name>-source.md`, where `<doc-name>` is
-the vault folder's own name -- this project analyzes exactly one combined
-requirement set per configured vault, not a per-file selection. There is
-no `requirements/` folder and no `.docx`/`.xlsx` requirement-document
-handling anymore; a client's requirement notes live directly in this
-vault as `.md` files.
+the attached folder's own name -- this project analyzes exactly one
+combined requirement set per attached folder, not a per-file selection.
+There is no `.docx`/`.xlsx` requirement-document handling; a client's
+requirement notes live in `Requirements/` as `.md` files.
 
 This is deliberately separate from that same vault's other, pre-existing
 use: `knowledge_base.search --source reading` reads the same folder for the
@@ -40,15 +40,15 @@ Usage:
 
 Prints the resolved doc-name on the first line, then
 `source: <vault path> (<n> file(s) combined)` on the second, and exits 0.
-Exits 1 if `requirementReading.obsidianPath` isn't configured, the
-configured path doesn't exist, or it exists but contains no `.md` files.
+Exits 1 if the attached folder has no `Requirements/` subfolder, or it
+contains no `.md` files.
 """
 
 import sys
 from pathlib import Path
 
-from orchestrator.utils.config import requirement_reading_vault_path
 from orchestrator.utils.paths import requirement_source_md_path
+from orchestrator.utils.workspace import document_name, requirements_path
 
 
 def _iter_md_files(vault: Path):
@@ -80,16 +80,14 @@ def combine(vault: Path) -> tuple[str, int]:
 
 
 def main() -> None:
-    vault = requirement_reading_vault_path()
+    vault = requirements_path()
     if vault is None:
         print(
-            "requirementReading.obsidianPath is not configured in "
-            "config/settings.json -- there is no requirement source to read.",
+            "No Requirements/ folder found in the attached folder -- "
+            "there is no requirement source to read. Create a Requirements/ "
+            "subfolder holding the requirement .md notes.",
             file=sys.stderr,
         )
-        sys.exit(1)
-    if not vault.is_dir():
-        print(f"Configured requirementReading.obsidianPath does not exist: {vault}", file=sys.stderr)
         sys.exit(1)
 
     combined_text, count = combine(vault)
@@ -97,7 +95,7 @@ def main() -> None:
         print(f"No .md files found under {vault}", file=sys.stderr)
         sys.exit(1)
 
-    doc_name = vault.name
+    doc_name = document_name()
     dest = requirement_source_md_path(doc_name)
     dest.parent.mkdir(parents=True, exist_ok=True)
     if not dest.exists() or dest.read_text(encoding="utf-8") != combined_text:

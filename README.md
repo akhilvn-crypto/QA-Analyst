@@ -1,14 +1,14 @@
 # qa-analyst
 
 Autonomous QA copilot for **Cowork / Claude Code**: requirement analysis,
-test planning, and test-case generation against a configured Obsidian
-vault. Test automation (Playwright scaffolding, script generation/healing,
-suite execution/reporting) is out of scope here — a separate agent setup
-consumes this plugin's generated test cases.
+test planning, and test-case generation, working directly inside the vault
+folder you attach. Test automation (Playwright scaffolding, script
+generation/healing, suite execution/reporting) is out of scope here — a
+separate agent setup consumes this plugin's generated test cases.
 
 This repo is a **plugin marketplace of one plugin** (`qa-analyst`), meant
 to be installed once per person and then used against any number of
-separate client workspace folders.
+client vault folders.
 
 ## Install (team)
 
@@ -20,7 +20,7 @@ In a Cowork / Claude Code session, run:
 ```
 
 When prompted for scope, choose **user** — this makes the plugin available
-in every workspace folder you open afterward, not just one repo.
+in every folder you attach afterward, not just one.
 
 Confirm it worked:
 
@@ -43,29 +43,46 @@ then reinstall/reload if prompted.
 
 ## Using it
 
-The plugin is installed once; each **workspace folder** you point it at
-(a separate project folder you open in Cowork — not this plugin repo) gets
-its own self-created `config/settings.json` and `output/`:
+There is nothing to configure. Attach the client's vault folder in Cowork
+and lay it out like this — the plugin finds everything by folder name:
 
-1. Open your client's workspace folder in Cowork.
-2. Fill in `config/settings.json` in that workspace (it self-creates with
-   blank defaults on first read):
-   - `requirementReading.obsidianPath` — **required**: the Obsidian vault
-     folder holding that client's requirement `.md` notes. This is the
-     project's sole requirement input.
-   - `knowledgeBase.obsidianPath` — optional general domain-background
-     vault, served by the Knowledge Base Service (`/start-kb-service` →
-     `/load-kb`).
-   - `requirementHandoff.obsidianDestinationPath` — optional, where
-     `/handoff-*` commands copy an approved deliverable.
-   - `operator` — your name/designation/project info, attributed on every
-     revision.
-3. Run `/analyse-requirement`, then `/generate-test-plan` and
-   `/generate-test-cases` as needed. Use `/handoff-*` once a deliverable is
-   approved.
+```
+<client vault>/
+  Requirements/      requirement .md notes              (required)
+  Knowledge Base/    domain-background .md notes        (optional)
+  Branding/          header-logo.png, project-logo.png  (optional — overrides the bundled Emvigo logos)
+  Project Info.md    who's running QA                   (optional)
+  output/            generated deliverables             (created automatically)
+```
 
-See this repo's own `CLAUDE.md` for the full configuration, workspace, and
-deliverable model.
+Folder names are matched ignoring case, spaces, `-` and `_`
+(`knowledge-base` works too). Deliverables are named after the attached
+folder (e.g. `LinkGrid-analysis.md`).
+
+`Project Info.md` supplies the identity recorded on every revision in
+`execution-log/`; any field left out shows as `TBD`:
+
+```markdown
+---
+name: Your Name
+designation: QA Lead
+projectName: LinkGrid
+projectId: LG-001
+---
+```
+
+Then:
+
+1. `/analyse-requirement` — analyzes everything in `Requirements/`.
+2. `/generate-test-plan` and `/generate-test-cases` as needed.
+3. Optional: `/start-kb-service` → `/load-kb` to serve `Knowledge Base/` to
+   the agents; `/stop-kb-service` when done.
+
+Review the `.md` reports directly under `output/` — they already live in
+your vault.
+
+See this repo's own `CLAUDE.md` for the full workspace and deliverable
+model.
 
 ## Local development
 

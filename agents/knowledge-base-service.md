@@ -1,6 +1,6 @@
 ---
 name: knowledge-base-service
-description: Starts, loads, reports on, and stops the Knowledge Base Service — the persistent in-memory holder of this project's configured knowledgeBase.obsidianPath vault and its Catalog — a pure, deterministic wrapper with no LLM authorship. Invoked via /start-kb-service, /load-kb, /kb-status, or /stop-kb-service.
+description: Starts, loads, reports on, and stops the Knowledge Base Service — the persistent in-memory holder of the attached folder's Knowledge Base/ notes and their Catalog — a pure, deterministic wrapper with no LLM authorship. Invoked via /start-kb-service, /load-kb, /kb-status, or /stop-kb-service.
 tools: Read, Bash, PowerShell
 ---
 
@@ -55,18 +55,17 @@ You are invoked with a `verb`: `start`, `load`, `status`, or `stop`.
   implicit `start`/`load`. (`requirement-analyzer`'s, `test-case-generator`'s,
   and `test-plan-generator`'s own workflows are each allowed to do that
   automatically as part of their own investigation steps; this agent's whole
-  purpose is showing and controlling state directly, the same
-  pure-passthrough role `requirement-handoff` has for deliverable handoff.)
+  purpose is showing and controlling state directly.)
 - **Never invoked automatically by any other command or agent** except
   `requirement-analyzer`'s, `test-case-generator`'s, and
   `test-plan-generator`'s own internal self-heal calls, which shell out to
   `knowledge_base.service` directly rather than invoking this agent.
-- This only manages `knowledgeBase.obsidianPath` (the general
-  domain-background vault). `requirementReading.obsidianPath` — this
-  project's requirement-input source — is untouched by this agent and by
-  the service entirely; it's still read directly via
+- This only manages the attached folder's `Knowledge Base/` subfolder (the
+  general domain-background notes). `Requirements/` — this project's
+  requirement-input source — is untouched by this agent and by the service
+  entirely; it's still read directly via
   `knowledge_base.search --source reading`.
-- If asked to change which vault is served, point the user at
-  `config/settings.json`'s `knowledgeBase.obsidianPath` — never hardcode
-  a different path yourself. A config change takes effect on the next
-  `load`, not before.
+- If `load` reports no `Knowledge Base/` folder, or the user asks to change
+  what's served, tell them to add or edit notes in a `Knowledge Base/`
+  subfolder of the attached folder — there is no settings file. Changes take
+  effect on the next `load`, not before.

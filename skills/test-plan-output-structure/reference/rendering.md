@@ -66,9 +66,10 @@ breaks everywhere.
 
 ## Cover page and footers
 
-A4 portrait. `config/branding/header-logo.png` right-aligned in
+A4 portrait. `header-logo.png` right-aligned in
 the first-page header (cover page only — interior pages carry no header),
-`config/branding/project-logo.png` centered on the cover body, "Test
+`project-logo.png` centered on the cover body (each from the attached
+folder's `Branding/` if present, else the bundled `assets/branding/`), "Test
 Plan for `<title>`", Project ID line, left-aligned prepared-by/date block.
 
 Non-cover page footers carry "Confidential – Internal / Client Use Only"

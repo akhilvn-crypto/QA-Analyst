@@ -1,7 +1,7 @@
 """Writes structured test-plan data as a formatted Word document, following
 Emvigo's Test Plan structure and branding (see the test-plan-output-structure
 skill for the authoritative section order/formatting spec, and
-config/branding/ for the logo assets used on the cover page).
+`paths.header_logo_path`/`project_logo_path` for the logo assets used on the cover page).
 
 Usage:
     python -m orchestrator.generation.test_plan_docx_writer <doc-name>

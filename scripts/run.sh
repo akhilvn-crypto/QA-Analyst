@@ -44,5 +44,10 @@ fi
 module="$1"
 shift
 
-PYTHON_BIN="${PYTHON_EXE:-python}"
+PYTHON_BIN="${PYTHON_EXE:-}"
+if [ -z "$PYTHON_BIN" ]; then
+  # python3 first for Cowork's Linux sandbox; `python` for Windows hosts,
+  # where `python3` is often a Microsoft Store stub that doesn't run.
+  if python3 -c "" >/dev/null 2>&1; then PYTHON_BIN=python3; else PYTHON_BIN=python; fi
+fi
 exec env PYTHONPATH="$PROJECT_ROOT" "$PYTHON_BIN" -m "orchestrator.$module" "$@"

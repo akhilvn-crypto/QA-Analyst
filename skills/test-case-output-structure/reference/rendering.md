@@ -40,7 +40,8 @@ opens on its cover page):
    `document_control` field (`DOCUMENT_CONTROL_FIELDS`: Document Title,
    Project ID, Document ID, Description, Version, Prepared By, Prepared
    Date, Approved Date, Master Template ID), with the project logo
-   (`config/branding/project-logo.png`, via
+   (`Branding/project-logo.png` in the attached folder, else the bundled
+   `assets/branding/project-logo.png`, via
    `orchestrator.utils.paths.project_logo_path()`) embedded above it — the
    same asset the Test Plan cover page uses. A missing logo file is a no-op,
    not a failure.

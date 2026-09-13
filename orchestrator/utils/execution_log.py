@@ -12,10 +12,10 @@ Every writer that already archives to a sibling `history/` folder calls
 four `.md` reports, and `hooks/snapshot-output.sh` for the three JSON
 deliverables it snapshots.
 
-"Who" comes from `config/settings.json`'s `operator` block
-(`orchestrator.utils.config.operator_info`) -- this is a single-operator CLI
-with no multi-user auth, so there's no session identity to derive this from;
-a user fills it in once. Left blank, each field renders as this project's
+"Who" comes from the frontmatter of an optional `Project Info.md` note at
+the attached folder's root (`orchestrator.utils.workspace.operator_info`)
+-- this is a single-operator tool with no multi-user auth, so there's no
+session identity to derive this from; a user fills it in once. Left blank, each field renders as this project's
 standard "TBD – Client/Project Input Required" placeholder, same as any
 other unset client/project fact -- never fabricated, never silently
 defaulted to an OS or git username.
@@ -40,8 +40,8 @@ import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from orchestrator.utils.config import operator_info
 from orchestrator.utils.md_table import build_table
+from orchestrator.utils.workspace import operator_info
 
 # A fixed UTC+5:30 offset, not `zoneinfo.ZoneInfo("Asia/Kolkata")` -- IST has
 # no DST to track, and Windows Python has no bundled tzdata (importing that

@@ -85,11 +85,11 @@ at step 11.
    independent sources:
 
    - **Reading vault first** — per-requirement, client-specific material
-     (`requirementReading.obsidianPath`), read straight off disk as ranked
+     (the attached folder's `Requirements/`), read straight off disk as ranked
      sections, no cap — every matching section comes back, best first: `bash
      ./.qa-orchestrator knowledge_base.search "<requirement text or the
      specific missing detail>" --source reading`.
-     `[]` means that source has no such note, or isn't configured at all —
+     `[]` means that source has no such note, or the folder doesn't exist —
      fall back to the framework's generic-placeholder discipline rather
      than guessing. Judge each section for genuine relevance — it matched
      your words, which is not the same as answering your question. A
@@ -99,7 +99,7 @@ at step 11.
 
    - **Domain-background vault** — only if the doubt is a general domain
      convention rather than specific to this requirement
-     (`knowledgeBase.obsidianPath`). Served by the persistent Knowledge Base
+     (the attached folder's `Knowledge Base/`). Served by the persistent Knowledge Base
      Service, never `knowledge_base.search` — deliberately: no vector
      search, embeddings, or chunking, and no excerpt either. A retrieved
      file always comes back **complete**.
@@ -184,7 +184,7 @@ at step 11.
     bash ./.qa-orchestrator generation.test_case_md_writer "<doc-name>"
     ```
     → `output/test-cases/<doc-name>-test-cases.md`, the file a reviewer
-    reads before `/handoff-test-cases`. Runs regardless of `--xlsx`/`--csv`.
+    reads in place. Runs regardless of `--xlsx`/`--csv`.
 
 11. **Export the CSV and/or XLSX — only what was requested.** Call once,
     with both flags together when both were requested (avoids reading the

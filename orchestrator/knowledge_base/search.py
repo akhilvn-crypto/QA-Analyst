@@ -15,10 +15,11 @@ keep in sync with the notes it describes.
                                                           [--max-chars N]
     python -m orchestrator.knowledge_base.search --list [--source vault|reading]
 
-`--source` picks which configured folder to read:
-- `vault` (default): `config/settings.json`'s `knowledgeBase.obsidianPath`
-  -- the general domain-background source, queried once per analysis run.
-- `reading`: `requirementReading.obsidianPath` -- the per-requirement
+`--source` picks which subfolder of the attached folder to read
+(`orchestrator.utils.workspace`):
+- `vault` (default): `Knowledge Base/` -- the general domain-background
+  source.
+- `reading`: `Requirements/` -- the per-requirement
   fallback source, queried only when a requirement's own text isn't enough
   to reason about confidently. (The same folder `parsing.reading_vault_fetch`
   reads as the requirement input itself.)
@@ -34,8 +35,8 @@ dropped) with `truncated: true`; everything else comes back whole.
 agent reads the named file directly with its own `Read` tool and gets the
 whole thing, exactly as written.
 
-A blank configured path, a folder that doesn't exist, or simply no match
-all print `[]` and exit 0. Configuring a knowledge base is opt-in, so
+A missing subfolder or simply no match both print `[]` and exit 0. A
+knowledge base is opt-in, so
 "nothing here" is an ordinary answer, never an error -- the caller falls
 back to the requirement text alone.
 """
@@ -46,16 +47,16 @@ import re
 import sys
 from pathlib import Path
 
-from orchestrator.utils.config import obsidian_vault_path, requirement_reading_vault_path
+from orchestrator.utils import workspace
 
 _SOURCES = {
     "vault": {
-        "config_key": "knowledgeBase.obsidianPath",
-        "resolve": obsidian_vault_path,
+        "config_key": f"{workspace.KNOWLEDGE_BASE_DIRNAME}/",
+        "resolve": lambda: workspace.knowledge_base_path(),
     },
     "reading": {
-        "config_key": "requirementReading.obsidianPath",
-        "resolve": requirement_reading_vault_path,
+        "config_key": f"{workspace.REQUIREMENTS_DIRNAME}/",
+        "resolve": lambda: workspace.requirements_path(),
     },
 }
 

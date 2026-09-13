@@ -20,8 +20,7 @@ read that only if you're debugging a writer.
 | `<doc-name>-test-plan.md` | always — `generation.test_plan_md_writer` |
 | `<doc-name>-test-plan.docx` | opt-in `--docx` — `generation.test_plan_docx_writer` |
 
-The `.md` is what a reviewer reads before `/handoff-test-plan` copies it
-unchanged to `requirementHandoff.obsidianDestinationPath`.
+The `.md` is what a reviewer reads, in place under `output/test-plan/`.
 
 ## Section order (fixed)
 

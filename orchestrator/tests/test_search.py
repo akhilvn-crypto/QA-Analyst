@@ -7,47 +7,28 @@ query over unchanged notes ranks the same way twice, and an unconfigured or
 empty source is an ordinary empty answer rather than an error.
 """
 
-import json
-
 import pytest
 
 from orchestrator.knowledge_base import search
-from orchestrator.utils import config
+from orchestrator.utils import workspace
 
 
 @pytest.fixture
 def vaults(monkeypatch, tmp_path):
-    """A configured `vault` and `reading` folder, isolated from this repo's
-    own config/settings.json."""
-    kb = tmp_path / "kb"
-    reading = tmp_path / "reading"
+    """An attached folder with `Knowledge Base/` (`vault` source) and
+    `Requirements/` (`reading` source) subfolders."""
+    kb = tmp_path / "Knowledge Base"
+    reading = tmp_path / "Requirements"
     kb.mkdir()
     reading.mkdir()
-
-    cfg_path = tmp_path / "settings.json"
-    cfg_path.write_text(
-        json.dumps(
-            {
-                "knowledgeBase": {"obsidianPath": str(kb)},
-                "requirementReading": {"obsidianPath": str(reading)},
-            }
-        ),
-        encoding="utf-8",
-    )
-    monkeypatch.setattr(config, "config_path", lambda: cfg_path)
-    config.load_config.cache_clear()
-    yield kb, reading
-    config.load_config.cache_clear()
+    monkeypatch.setattr(workspace, "workspace_root", lambda: tmp_path)
+    return kb, reading
 
 
 @pytest.fixture
-def blank_config(monkeypatch, tmp_path):
-    cfg_path = tmp_path / "settings.json"
-    cfg_path.write_text(json.dumps({}), encoding="utf-8")
-    monkeypatch.setattr(config, "config_path", lambda: cfg_path)
-    config.load_config.cache_clear()
-    yield
-    config.load_config.cache_clear()
+def empty_workspace(monkeypatch, tmp_path):
+    monkeypatch.setattr(workspace, "workspace_root", lambda: tmp_path)
+    return tmp_path
 
 
 # --- split_sections -------------------------------------------------------
@@ -192,22 +173,10 @@ def test_no_match_is_an_empty_list(vaults):
     assert search.search("kubernetes ingress") == []
 
 
-def test_blank_configured_path_is_an_empty_list_not_an_error(blank_config):
+def test_missing_subfolder_is_an_empty_list_not_an_error(empty_workspace):
     assert search.search("anything") == []
+    assert search.search("anything", source="reading") == []
     assert search.list_notes() == []
-
-
-def test_missing_configured_folder_is_an_empty_list_not_an_error(monkeypatch, tmp_path):
-    cfg_path = tmp_path / "settings.json"
-    cfg_path.write_text(
-        json.dumps({"knowledgeBase": {"obsidianPath": str(tmp_path / "gone")}}), encoding="utf-8"
-    )
-    monkeypatch.setattr(config, "config_path", lambda: cfg_path)
-    config.load_config.cache_clear()
-    try:
-        assert search.search("anything") == []
-    finally:
-        config.load_config.cache_clear()
 
 
 def test_all_stopword_query_still_searches_rather_than_matching_nothing(vaults):

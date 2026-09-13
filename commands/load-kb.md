@@ -2,8 +2,8 @@
 description: Load (or reload) the Knowledge Base and its Catalog into the running Knowledge Base Service's memory
 ---
 
-No arguments — there's exactly one vault this service manages
-(`knowledgeBase.obsidianPath`). Invoke the `knowledge-base-service` subagent
+No arguments — there's exactly one folder this service manages (the
+attached folder's `Knowledge Base/` subfolder). Invoke the `knowledge-base-service` subagent
 with `verb: load`.
 
 Requires the service to already be `RUNNING` (`/start-kb-service` first); if

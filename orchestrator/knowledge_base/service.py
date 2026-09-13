@@ -1,7 +1,7 @@
 """The Knowledge Base Service -- a persistent, in-memory alternative to
 `knowledge_base.search`'s per-call disk reads, scoped to exactly one of the
-two vaults that module knows about: `knowledgeBase.obsidianPath` (the
-general domain-background vault). `requirementReading.obsidianPath` --
+two folders that module knows about: the attached folder's
+`Knowledge Base/` subfolder (general domain background). `Requirements/` --
 this project's sole requirement-input source, and its own separate
 per-requirement reasoning fallback -- is untouched by this module;
 `knowledge_base.search --source reading` keeps working exactly as before.
@@ -120,7 +120,7 @@ from orchestrator.models.knowledge_base_service import (
     CatalogEntry,
     ServiceStatus,
 )
-from orchestrator.utils import config
+from orchestrator.utils import workspace
 from orchestrator.utils.paths import (
     WORKSPACE_ROOT,
     kb_service_dir,
@@ -241,28 +241,17 @@ class KnowledgeBaseService:
             self._loading = True
             self._kb_state = KB_LOADING
 
-        # Every other orchestrator call is a fresh, cold-cache process, so
-        # "read the config fresh" has always meant "fresh as of this
-        # call" -- a long-lived server breaks that silently unless it
-        # clears the cache itself before resolving the vault path, on
-        # every load, so a mid-session config edit takes effect on the
-        # very next load rather than only after a restart.
-        config.load_config.cache_clear()
-        folder = config.obsidian_vault_path()
+        # Resolved on every load (workspace lookups are never cached), so a
+        # Knowledge Base/ folder added or renamed mid-session is picked up
+        # by the very next load rather than only after a restart.
+        folder = workspace.knowledge_base_path()
 
         if folder is None:
             with self._lock:
                 self._kb_state = KB_ERROR
                 self._error = (
-                    "knowledgeBase.obsidianPath is not configured in config/settings.json."
+                    "No Knowledge Base/ folder found in the attached folder."
                 )
-                self._loading = False
-                return self._status_locked()
-
-        if not folder.is_dir():
-            with self._lock:
-                self._kb_state = KB_ERROR
-                self._error = f"Configured knowledgeBase.obsidianPath does not exist: {folder}"
                 self._loading = False
                 return self._status_locked()
 

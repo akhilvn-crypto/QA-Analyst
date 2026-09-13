@@ -9,31 +9,17 @@ import pytest
 from orchestrator.parsing import vault_writeback
 
 
-def test_vault_not_configured_exits_1(monkeypatch, capsys):
+def test_no_requirements_folder_exits_1(monkeypatch, capsys):
     import sys
 
-    monkeypatch.setattr(vault_writeback, "requirement_reading_vault_path", lambda: None)
+    monkeypatch.setattr(vault_writeback, "requirements_path", lambda: None)
     monkeypatch.setattr(sys, "argv", ["prog", "snapshot", "Note.md"])
 
     with pytest.raises(SystemExit) as exc:
         vault_writeback.main()
 
     assert exc.value.code == 1
-    assert "not configured" in capsys.readouterr().err
-
-
-def test_configured_vault_missing_on_disk_exits_1(monkeypatch, capsys, tmp_path):
-    import sys
-
-    vault = tmp_path / "does-not-exist"
-    monkeypatch.setattr(vault_writeback, "requirement_reading_vault_path", lambda: vault)
-    monkeypatch.setattr(sys, "argv", ["prog", "snapshot", "Note.md"])
-
-    with pytest.raises(SystemExit) as exc:
-        vault_writeback.main()
-
-    assert exc.value.code == 1
-    assert "does not exist" in capsys.readouterr().err
+    assert "No Requirements/ folder" in capsys.readouterr().err
 
 
 def test_missing_file_exits_1(monkeypatch, capsys, tmp_path):
@@ -41,7 +27,7 @@ def test_missing_file_exits_1(monkeypatch, capsys, tmp_path):
 
     vault = tmp_path / "Requirements"
     vault.mkdir()
-    monkeypatch.setattr(vault_writeback, "requirement_reading_vault_path", lambda: vault)
+    monkeypatch.setattr(vault_writeback, "requirements_path", lambda: vault)
     monkeypatch.setattr(sys, "argv", ["prog", "snapshot", "Missing.md"])
 
     with pytest.raises(SystemExit) as exc:
@@ -58,7 +44,7 @@ def test_path_traversal_outside_vault_exits_1(monkeypatch, capsys, tmp_path):
     vault.mkdir()
     outside = tmp_path / "outside.md"
     outside.write_text("Not in the vault.", encoding="utf-8")
-    monkeypatch.setattr(vault_writeback, "requirement_reading_vault_path", lambda: vault)
+    monkeypatch.setattr(vault_writeback, "requirements_path", lambda: vault)
     monkeypatch.setattr(sys, "argv", ["prog", "snapshot", "../outside.md"])
 
     with pytest.raises(SystemExit) as exc:

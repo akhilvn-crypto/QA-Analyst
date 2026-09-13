@@ -1,7 +1,7 @@
 {
   "name": "qa-analyst",
-  "version": "0.1.0",
-  "description": "Autonomous QA copilot: requirement analysis, test planning, and test-case generation against a configured Obsidian vault. Test automation is out of scope -- handled by a separate agent setup that consumes this plugin's generated test cases.",
+  "version": "0.2.0",
+  "description": "Autonomous QA copilot for Cowork: requirement analysis, test planning, and test-case generation straight from the attached vault folder (Requirements/, optional Knowledge Base/). No settings file. Test automation is out of scope -- handled by a separate agent setup that consumes this plugin's generated test cases.",
   "author": {
     "name": "Akhil VN"
   }
