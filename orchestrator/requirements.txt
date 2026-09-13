@@ -1,0 +1,17 @@
+# Pinned to the exact versions of the verified v1.0 build (2026-07-25) so a
+# fresh machine reproduces this build instead of pulling newer, possibly
+# breaking releases. Bump deliberately, re-run the test suite, then re-pin.
+python-docx==1.2.0
+openpyxl==3.1.5
+# Needed by openpyxl.drawing.image.Image to embed the project logo into the
+# test-case workbook's Document Version Control sheet -- openpyxl raises
+# ImportError without it.
+Pillow==12.3.0
+pywin32==312; sys_platform == "win32"
+pymupdf==1.28.0
+pytest==9.1.1
+
+# The embedding stack (chromadb, sentence-transformers, and the torch/
+# transformers/numpy pins they dragged in) was removed along with the vector
+# store -- `knowledge_base.search` reads the configured markdown folders
+# directly and needs nothing beyond the standard library.

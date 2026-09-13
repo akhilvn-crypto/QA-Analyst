@@ -1,0 +1,436 @@
+"""Generic python-docx formatting helpers shared by every report writer.
+
+No business logic here -- only low-level OXML plumbing that python-docx
+doesn't expose a high-level API for (fixed column widths, cell shading,
+repeating header rows, per-cell font styling).
+"""
+
+from pathlib import Path
+
+from docx.enum.table import WD_CELL_VERTICAL_ALIGNMENT
+from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.oxml import OxmlElement
+from docx.oxml.ns import qn
+from docx.shared import Inches, Pt, RGBColor
+
+FONT_NAME = "Calibri"
+
+# Severity -> (text colour, cell fill). The standard Office
+# conditional-formatting pairs, so they read the same in Word and in an exported
+# PDF. Shared by `report_exporter` and `security_report_docx_writer` -- per this
+# module's no-duplication rule, a palette both writers need lives here.
+SEVERITY_STYLES = {
+    "critical": ("9C0006", "FFC7CE"),
+    "high": ("C00000", "F8D7D3"),
+    "medium": ("9C6500", "FFEB9C"),
+    "low": ("006100", "C6EFCE"),
+}
+
+
+def set_fixed_column_widths(table, widths_in: list[float]) -> None:
+    """Force fixed column widths on both the table and every cell.
+
+    python-docx silently drops width settings unless the table layout is
+    pinned to "fixed" (Word otherwise autofits to content) and the width is
+    set redundantly on the column grid *and* every cell in every row.
+    """
+    table.autofit = False
+    table.allow_autofit = False
+
+    tbl_pr = table._tbl.tblPr
+    layout = OxmlElement("w:tblLayout")
+    layout.set(qn("w:type"), "fixed")
+    tbl_pr.append(layout)
+
+    for idx, width_in in enumerate(widths_in):
+        table.columns[idx].width = Inches(width_in)
+
+    for row in table.rows:
+        for idx, width_in in enumerate(widths_in):
+            row.cells[idx].width = Inches(width_in)
+
+
+def repeat_header_row(row) -> None:
+    tr_pr = row._tr.get_or_add_trPr()
+    header = OxmlElement("w:tblHeader")
+    header.set(qn("w:val"), "true")
+    tr_pr.append(header)
+
+
+def shade_cell(cell, hex_fill: str) -> None:
+    tc_pr = cell._tc.get_or_add_tcPr()
+    shd = OxmlElement("w:shd")
+    shd.set(qn("w:val"), "clear")
+    shd.set(qn("w:color"), "auto")
+    shd.set(qn("w:fill"), hex_fill)
+    tc_pr.append(shd)
+
+
+def style_cell(
+    cell,
+    text: str,
+    *,
+    bold: bool = False,
+    color: str | None = None,
+    size_pt: int = 10,
+) -> None:
+    cell.text = ""
+    cell.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.TOP
+
+    # Ensure Word wraps long text instead of stretching the fixed column.
+    tc_pr = cell._tc.get_or_add_tcPr()
+    no_wrap = tc_pr.find(qn("w:noWrap"))
+    if no_wrap is not None:
+        tc_pr.remove(no_wrap)
+
+    paragraph = cell.paragraphs[0]
+    paragraph.alignment = WD_ALIGN_PARAGRAPH.LEFT
+    run = paragraph.add_run(text)
+    run.font.name = FONT_NAME
+    run.font.size = Pt(size_pt)
+    run.font.bold = bold
+    if color:
+        run.font.color.rgb = RGBColor.from_string(color)
+
+
+def add_page_field(paragraph, field_code: str, *, placeholder_text: str | None = None) -> None:
+    """Insert a live Word field (e.g. 'PAGE', 'NUMPAGES', or a TOC field code)
+    into a paragraph.
+
+    python-docx has no high-level API for field codes -- Word computes and
+    displays the value when the document is opened/printed (or immediately,
+    if `set_update_fields_on_open` has been applied to the document).
+    `placeholder_text` is shown as the field's cached result until Word
+    (re)computes it -- useful for fields like TOC that render as empty space
+    with no cached value otherwise.
+    """
+    run = paragraph.add_run()
+    fld_begin = OxmlElement("w:fldChar")
+    fld_begin.set(qn("w:fldCharType"), "begin")
+
+    instr_text = OxmlElement("w:instrText")
+    instr_text.set(qn("xml:space"), "preserve")
+    instr_text.text = field_code
+
+    fld_separate = OxmlElement("w:fldChar")
+    fld_separate.set(qn("w:fldCharType"), "separate")
+
+    fld_end = OxmlElement("w:fldChar")
+    fld_end.set(qn("w:fldCharType"), "end")
+
+    run._r.append(fld_begin)
+    run._r.append(instr_text)
+    run._r.append(fld_separate)
+    if placeholder_text:
+        placeholder = OxmlElement("w:t")
+        placeholder.set(qn("xml:space"), "preserve")
+        placeholder.text = placeholder_text
+        run._r.append(placeholder)
+    run._r.append(fld_end)
+
+
+def set_update_fields_on_open(document) -> None:
+    """Make Word recompute every field (PAGE, NUMPAGES, TOC, ...) as soon as
+    the document opens, instead of requiring the user to right-click each one
+    and choose "Update Field"."""
+    settings = document.settings.element
+    update_fields = OxmlElement("w:updateFields")
+    update_fields.set(qn("w:val"), "true")
+    settings.append(update_fields)
+
+
+def set_authorship(document, *, author: str, title: str = "", subject: str = "") -> None:
+    """Set a document's core properties to deliberate values.
+
+    python-docx's default template stamps `author = "python-docx"` and
+    `comments = "generated by python-docx"` into every file it creates. On a
+    client-facing deliverable that is both unprofessional and an unnecessary
+    disclosure of the toolchain, so set these explicitly rather than shipping
+    the library's defaults.
+    """
+    properties = document.core_properties
+    properties.author = author
+    properties.last_modified_by = author
+    properties.title = title
+    properties.subject = subject
+    properties.comments = ""
+    properties.category = ""
+    properties.keywords = ""
+
+
+def scrub_authorship(docx_path, *, author: str) -> None:
+    """Reset authorship on an already-saved file.
+
+    Needed after `bake_live_fields`: Word stamps the *Windows account name* of
+    whoever ran the save into `last_modified_by`, which leaks an internal
+    username into a document that gets sent to a client. Re-open and reset it
+    once Word is done.
+    """
+    from docx import Document
+
+    document = Document(str(docx_path))
+    properties = document.core_properties
+    existing_title = properties.title or ""
+    existing_subject = properties.subject or ""
+    set_authorship(document, author=author, title=existing_title, subject=existing_subject)
+    document.save(str(docx_path))
+
+
+def bake_live_fields(docx_path) -> None:
+    """Open a saved docx in Word, force every field (Table of Contents, PAGE,
+    NUMPAGES) to compute its real value, and resave.
+
+    Without this, a TOC and page-number fields carry no cached result --
+    correct only if and when the reader's copy of Word auto-updates fields on
+    open, which isn't guaranteed. Baking the computed result into the file
+    means any viewer (Word without that setting, LibreOffice, a preview pane)
+    shows the correct content immediately. The field codes themselves are
+    preserved, so the document stays live/updateable if edited later in Word.
+
+    This system only ever runs on Windows machines with Word installed (see
+    hooks/format-report.sh) -- if pywin32 isn't available, this is a
+    no-op rather than a hard failure, matching that hook's own tolerance.
+    """
+    try:
+        import win32com.client as win32
+    except ImportError:
+        return
+
+    # Word resolves a relative path against *its own* working directory, not
+    # ours, and fails with "Sorry, we couldn't find your file" for a path that
+    # is perfectly valid here. Callers legitimately pass relative paths (the
+    # agents' documented commands use `output/...` under the workspace root),
+    # so absolutise before handing anything to COM.
+    docx_path = Path(docx_path).resolve()
+
+    word = win32.gencache.EnsureDispatch("Word.Application")
+    word.Visible = False
+    try:
+        doc = word.Documents.Open(str(docx_path))
+        try:
+            doc.Fields.Update()
+            for toc in doc.TablesOfContents:
+                toc.Update()
+            doc.Fields.Update()
+            doc.Save()
+        finally:
+            doc.Close(False)
+    finally:
+        word.Quit()
+
+
+def set_table_cell_margins(
+    table, *, top_pt: float = 4, bottom_pt: float = 4, left_pt: float = 6, right_pt: float = 6
+) -> None:
+    """Give every cell in a table breathing room. Word's default table cell
+    margins are near zero, which is what makes a densely-packed table read
+    as "compressed" -- text butts right up against the cell borders."""
+    tbl_pr = table._tbl.tblPr
+    tbl_cell_mar = OxmlElement("w:tblCellMar")
+    for side, value_pt in (("top", top_pt), ("bottom", bottom_pt), ("left", left_pt), ("right", right_pt)):
+        node = OxmlElement(f"w:{side}")
+        node.set(qn("w:w"), str(int(value_pt * 20)))  # twentieths of a point
+        node.set(qn("w:type"), "dxa")
+        tbl_cell_mar.append(node)
+    tbl_pr.append(tbl_cell_mar)
+
+
+def set_min_row_height(row, height_pt: float) -> None:
+    """Set a minimum row height so table rows don't read as visually
+    squashed even when their cell text is short."""
+    tr_pr = row._tr.get_or_add_trPr()
+    tr_height = OxmlElement("w:trHeight")
+    tr_height.set(qn("w:val"), str(int(height_pt * 20)))
+    tr_height.set(qn("w:hRule"), "atLeast")
+    tr_pr.append(tr_height)
+
+
+def add_bottom_border(paragraph, *, color: str = "BFBFBF", size: int = 6) -> None:
+    """Give a paragraph a bottom border -- Word has no standalone
+    "horizontal rule" object; an empty, bottom-bordered paragraph is the
+    standard way to render one. Unlike a run of repeated dash characters,
+    a border always spans the paragraph's full width regardless of font
+    size or the page's usable width, so it never needs recalculating when
+    either changes."""
+    p_pr = paragraph._p.get_or_add_pPr()
+    p_bdr = OxmlElement("w:pBdr")
+    bottom = OxmlElement("w:bottom")
+    bottom.set(qn("w:val"), "single")
+    bottom.set(qn("w:sz"), str(size))  # eighths of a point
+    bottom.set(qn("w:space"), "1")
+    bottom.set(qn("w:color"), color)
+    p_bdr.append(bottom)
+    p_pr.append(p_bdr)
+
+
+def set_row_cant_split(row) -> None:
+    """Prevent a single row's content from splitting across a page break.
+
+    Word's default behaviour, when a row is too tall to fit in the space
+    left on a page, is to divide that row's own content across the page
+    boundary -- part of the row prints on one page, the rest on the next,
+    with a repeating header (see `repeat_header_row`) sandwiched in between.
+    That reads as duplicated/confusing content, not a clean continuation.
+    With `cantSplit` set, Word instead moves the whole row to the next page
+    intact, so a table that spans a page break always breaks *between* rows,
+    never in the middle of one.
+
+    Only apply this to a row that can plausibly fit on one page at all --
+    see `estimate_row_height_in`'s docstring for the real, observed defect
+    that happens when a row's content is taller than a full page and this
+    is applied anyway.
+    """
+    tr_pr = row._tr.get_or_add_trPr()
+    cant_split = OxmlElement("w:cantSplit")
+    cant_split.set(qn("w:val"), "true")
+    tr_pr.append(cant_split)
+
+
+# Common approximation for a 10-11pt proportional font (Calibri, this
+# system's default): average character advance width is roughly 1/12in,
+# and single-spaced line height is roughly 1.25x the font size in points.
+# Precise only to the degree any such estimate can be -- it exists to catch
+# a row that is dramatically too tall for one page, not to predict exact
+# Word layout.
+_CHARS_PER_INCH = 12.0
+_LINE_HEIGHT_FACTOR = 1.25
+# Word's own default cell margins (~0.08in each side) eat into a column's
+# stated width before any text can use it.
+_CELL_PADDING_IN = 0.16
+
+
+def estimate_row_height_in(
+    cell_texts: list[str], column_widths_in: list[float], font_size_pt: float
+) -> float:
+    """Estimated printed height (inches) of a table row, given each cell's
+    text and its column's fixed width -- the tallest wrapped cell decides
+    the row's actual height, exactly as Word lays it out.
+
+    This exists because of a real, observed defect: `set_row_cant_split`
+    forces a row to move to a fresh page rather than split across one, but
+    if the row's own content is taller than a full page (a long Acceptance
+    Criteria/Gap/Recommendations cell can easily be, unlike the Test Plan's
+    length-capped release-history `reasons`), no fresh page is big enough
+    either -- the row still doesn't fit, and Word ends up stranding the
+    table header alone at the top of one page with the entire rest of that
+    page blank, while the oversized row's content starts on the *next* page
+    instead. A row this tall must be allowed to split across pages like
+    ordinary paragraph text does; forcing it whole only relocates the
+    overflow, it never prevents it.
+    """
+    line_height_in = (font_size_pt * _LINE_HEIGHT_FACTOR) / 72
+    tallest_cell_lines = 1
+    for text, width_in in zip(cell_texts, column_widths_in):
+        if not text:
+            continue
+        usable_width_in = max(width_in - _CELL_PADDING_IN, 0.3)
+        chars_per_line = max(1, int(usable_width_in * _CHARS_PER_INCH))
+        # A cell's own height is the SUM of its wrapped lines across every
+        # "\n"-separated paragraph it contains (e.g. a numbered Gap/
+        # Recommendations list), not just its single longest paragraph.
+        cell_lines = sum(
+            max(1, -(-len(line) // chars_per_line))  # ceil division
+            for line in text.split("\n")
+        )
+        tallest_cell_lines = max(tallest_cell_lines, cell_lines)
+    return tallest_cell_lines * line_height_in
+
+
+def save_document(document, path) -> None:
+    """Save a Document with a friendly, actionable message when Windows has
+    the target file locked (almost always: it's open in Word), instead of a
+    raw PermissionError traceback."""
+    try:
+        document.save(str(path))
+    except PermissionError:
+        raise SystemExit(
+            f"Cannot write {path} — the file appears to be open in Word (or "
+            "another program). Close it and re-run."
+        )
+
+
+def clear_paragraph_border(style) -> None:
+    """Remove any paragraph border (e.g. the bottom rule python-docx's
+    default Title style ships with) from a paragraph style."""
+    p_pr = style.element.find(qn("w:pPr"))
+    if p_pr is None:
+        return
+    p_bdr = p_pr.find(qn("w:pBdr"))
+    if p_bdr is not None:
+        p_pr.remove(p_bdr)
+
+
+def add_key_value_table(
+    document,
+    rows: list[tuple[str, str]],
+    *,
+    widths_in: list[float] = (2.0, 4.6),
+    font_size_pt: float = 10.5,
+):
+    """A two-column key/value table (bold key, plain value), no header row
+    -- the shape a Document Version Control section needs. Generic and
+    shared so a report writer never re-implements this ad hoc (see this
+    module's own docstring)."""
+    table = document.add_table(rows=0, cols=2)
+    table.style = "Table Grid"
+    for key, value in rows:
+        table_row = table.add_row()
+        set_min_row_height(table_row, 22)
+        set_row_cant_split(table_row)
+        cells = table_row.cells
+        style_cell(cells[0], key, bold=True, size_pt=font_size_pt)
+        style_cell(cells[1], value, size_pt=font_size_pt)
+    set_fixed_column_widths(table, list(widths_in))
+    set_table_cell_margins(table)
+    document.add_paragraph()
+    return table
+
+
+def add_header_table(
+    document,
+    headers: list[str],
+    rows: list[list[str]],
+    widths_in: list[float],
+    *,
+    font_size_pt: float = 10.5,
+    header_fill: str = "1F3864",
+    header_text_color: str = "FFFFFF",
+    cell_padding_pt: float = 6,
+    min_row_height_pt: float = 22,
+):
+    """A table with a bold, shaded, repeating header row and normal-sized
+    data rows protected from mid-row page splits (`cantSplit` + the
+    header's `keep_with_next`) -- the common shape a Document Release
+    History section (or any other small, bounded-content table) needs.
+    Generic and shared so a report writer never re-implements this ad hoc.
+
+    Unlike the main requirement-analysis table (whose rows can be
+    arbitrarily long and need `estimate_row_height_in` to decide whether
+    `cantSplit` is even safe -- see that function's docstring), this helper
+    assumes every row is reasonably small, which is true for the small,
+    tightly-bounded controlled-document tables it's meant for."""
+    table = document.add_table(rows=1, cols=len(headers))
+    table.style = "Table Grid"
+
+    header_row = table.rows[0]
+    repeat_header_row(header_row)
+    set_min_row_height(header_row, min_row_height_pt)
+    set_row_cant_split(header_row)
+    for idx, header in enumerate(headers):
+        cell = header_row.cells[idx]
+        style_cell(cell, header, bold=True, color=header_text_color, size_pt=font_size_pt)
+        shade_cell(cell, header_fill)
+        cell.paragraphs[0].paragraph_format.keep_with_next = True
+
+    for row in rows:
+        table_row = table.add_row()
+        set_min_row_height(table_row, min_row_height_pt)
+        set_row_cant_split(table_row)
+        cells = table_row.cells
+        for idx, value in enumerate(row):
+            style_cell(cells[idx], value, size_pt=font_size_pt)
+
+    set_fixed_column_widths(table, widths_in)
+    set_table_cell_margins(table, left_pt=cell_padding_pt, right_pt=cell_padding_pt)
+    document.add_paragraph()
+    return table

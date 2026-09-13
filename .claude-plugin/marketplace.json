@@ -1,0 +1,13 @@
+{
+  "name": "qa-analyst-local",
+  "owner": {
+    "name": "Akhil VN"
+  },
+  "plugins": [
+    {
+      "name": "qa-analyst",
+      "description": "Autonomous QA copilot: requirement analysis, test planning, and test-case generation",
+      "source": "./"
+    }
+  ]
+}
