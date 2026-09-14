@@ -48,15 +48,19 @@ lexicographic, so `REQ-2` sorts before `REQ-10`).
 reimplemented ad hoc:
 
 - Docx: Heading 1 "1. Document Control & Metadata", then every
-  `DOCUMENT_CONTROL_FIELDS` pair as its own bold-label/plain-value field
-  (`_add_field()` — the same helper every requirement card's fields use, so
-  the whole document reads consistently): **Project Name**
-  (`document_control.title`), **Project ID**, **Document ID**,
-  **Description**, **Document Version**, **Prepared By**, **Date**
-  (`prepared_date`), **Approved Date**, **Master Template ID**,
-  **Classification**. Markdown renders the identical fields as a bullet
-  list (`* **Label:** value`) — same content, no docx table equivalent
-  needed for a flat key/value list.
+  `DOCUMENT_CONTROL_FIELDS` pair as a row in a bold-key/plain-value table
+  (`docx_helpers.add_key_value_table()` — the same shared helper the Test
+  Plan's own Document Version Control section uses, so a controlled-document
+  identification block reads as a table everywhere in this project, not as
+  loose paragraphs): **Project Name** (`document_control.title`),
+  **Project ID**, **Document ID**, **Description**, **Document Version**,
+  **Prepared By**, **Date** (`prepared_date`), **Approved Date**,
+  **Master Template ID**, **Classification**. `_add_field()` (bold-label
+  paragraph + plain-value paragraph) is reserved for the Project Overview &
+  Scope narrative and each requirement card's own fields — free-flowing
+  prose fields, not a fixed controlled-document schema. Markdown renders the
+  Document Control fields as a bullet list (`* **Label:** value`) — same
+  content, no docx table equivalent needed for a flat key/value list.
 - "1.1 Revision History" (Heading 2 in docx, `###` in Markdown) is a
   **six-column condensed view** of `release_history` — Version, Date,
   Description (`reasons`), Author, Reviewed By, Approved By — dropping

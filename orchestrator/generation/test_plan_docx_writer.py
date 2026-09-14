@@ -19,6 +19,7 @@ from docx.shared import Inches, Mm, Pt, RGBColor
 from orchestrator.models.test_plan import TestPlan
 from orchestrator.utils.docx_helpers import (
     FONT_NAME,
+    add_key_value_table,
     bake_live_fields,
     scrub_authorship,
     set_authorship,
@@ -181,22 +182,6 @@ def _add_table(
     return table
 
 
-def _kv_table(document: Document, rows: list[tuple[str, str]]) -> None:
-    """Two-column key/value table (bold key, plain value) with no header row."""
-    table = document.add_table(rows=0, cols=2)
-    table.style = "Table Grid"
-    for key, value in rows:
-        table_row = table.add_row()
-        set_min_row_height(table_row, MIN_ROW_HEIGHT_PT)
-        set_row_cant_split(table_row)
-        cells = table_row.cells
-        style_cell(cells[0], key, bold=True, size_pt=TABLE_FONT_SIZE_PT)
-        style_cell(cells[1], value, size_pt=TABLE_FONT_SIZE_PT)
-    set_fixed_column_widths(table, [2.0, 4.6])
-    set_table_cell_margins(table)
-    document.add_paragraph()
-
-
 def _doc_location_table(document: Document, entries) -> None:
     if not entries:
         return
@@ -310,7 +295,7 @@ def _build_table_of_contents(document: Document) -> None:
 
 def _build_version_control(document: Document, plan: TestPlan) -> None:
     _add_heading(document, "A. Document Version Control", level=1, page_break=True)
-    _kv_table(
+    add_key_value_table(
         document,
         [
             ("Title", plan.meta.title),
