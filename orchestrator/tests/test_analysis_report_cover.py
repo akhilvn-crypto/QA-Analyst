@@ -85,12 +85,15 @@ def test_document_control_section_has_a_heading_and_every_field():
     assert "1. Document Control & Metadata" in texts
     assert "1.1 Revision History" in texts
 
-    # Every DOCUMENT_CONTROL_FIELDS label/value pair renders as its own
-    # bold-label-then-value field, same as a requirement card's own fields.
-    assert "Project Name" in texts
-    assert "Requirements" in texts
-    assert "Classification" in texts
-    assert "Internal / Highly Confidential" in texts
+    # Every DOCUMENT_CONTROL_FIELDS label/value pair renders as a row in a
+    # bold-key/plain-value table (add_key_value_table) -- the same
+    # controlled-document shape as the Revision History table right below
+    # it and the Test Plan's own Document Version Control section -- not as
+    # loose paragraphs.
+    control_table = document.tables[0]
+    control_rows = {row.cells[0].text: row.cells[1].text for row in control_table.rows}
+    assert control_rows["Project Name"] == "Requirements"
+    assert control_rows["Classification"] == "Internal / Highly Confidential"
 
 
 def test_revision_history_table_has_one_row_per_entry():
@@ -98,7 +101,8 @@ def test_revision_history_table_has_one_row_per_entry():
         [_requirement()], doc_name="Requirements",
         document_control=_document_control(), release_history=_release_history(),
     )
-    revision_table = document.tables[0]
+    # tables[0] is the Document Control & Metadata key/value table.
+    revision_table = document.tables[1]
     assert revision_table.rows[0].cells[0].text == "Version"  # header
     assert revision_table.rows[1].cells[0].text == "1.0"
     assert revision_table.rows[1].cells[2].text == "Initial analysis."  # Description column
@@ -129,9 +133,9 @@ def test_category_sections_and_requirement_cards_present():
     assert "3. Functional Requirements Analysis & Acceptance Criteria" in texts
     assert "4. Non-Functional Requirements (NFR) Analysis" in texts
     assert "5. Compliance & Regulatory Requirements Analysis" in texts
-    # Only the revision-history front-matter table exists -- requirements
-    # render as cards, not table rows.
-    assert len(document.tables) == 1
+    # Only the Document Control & Metadata and Revision History front-matter
+    # tables exist -- requirements render as cards, not table rows.
+    assert len(document.tables) == 2
     assert "REQ-001" in texts
     assert "REQ-029" in texts
     assert "Requirement" in texts

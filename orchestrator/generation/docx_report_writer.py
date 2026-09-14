@@ -35,6 +35,7 @@ from orchestrator.utils.docx_helpers import (
     FONT_NAME,
     add_bottom_border,
     add_header_table,
+    add_key_value_table,
     add_page_field,
     clear_paragraph_border,
     save_document,
@@ -303,9 +304,16 @@ def _add_field(document: Document, label: str, text: str) -> None:
     """One labeled field: a bold label paragraph (glued to the value that
     follows it, so a page break can never strand the label alone with its
     value pushed to the next page) and a plain paragraph holding the value.
-    Used for every "Label: value" pair in this report -- the Document
-    Control & Metadata fields, the Project Overview & Scope narrative, and
-    every requirement card's own fields -- so all four read consistently."""
+    Used for every "Label: value" pair in this report that isn't already a
+    controlled-document table field -- the Project Overview & Scope
+    narrative and every requirement card's own fields -- so both read
+    consistently. The Document Control & Metadata fields use
+    `add_key_value_table` instead (see `_build_document_control_section`):
+    a controlled-document identification block reads as a table everywhere
+    else in this project (the Revision History subsection right below it,
+    and the Test Plan's own Document Version Control section), so this
+    section follows the same shape rather than standing out as loose
+    paragraphs."""
     label_p = document.add_paragraph()
     label_p.paragraph_format.space_before = Pt(10)
     label_p.paragraph_format.space_after = Pt(2)
@@ -328,8 +336,10 @@ def _build_document_control_section(
     doc_name: str, requirements: list[Requirement],
 ) -> None:
     document.add_heading("1. Document Control & Metadata", level=1)
-    for label, attr in DOCUMENT_CONTROL_FIELDS:
-        _add_field(document, label, getattr(document_control, attr))
+    add_key_value_table(
+        document,
+        [(label, getattr(document_control, attr)) for label, attr in DOCUMENT_CONTROL_FIELDS],
+    )
 
     document.add_heading("1.1 Revision History", level=2)
     revision_rows = [
