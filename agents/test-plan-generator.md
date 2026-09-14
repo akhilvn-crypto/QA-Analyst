@@ -54,7 +54,8 @@ additionally do the docx half of step 15.
    otherwise against `<doc-name>-source.md` (run `bash ./.qa-orchestrator
    parsing.reading_vault_fetch` first if unsure the combined source is
    current — it only rewrites when the vault's content changed, so it's
-   always safe). If the test-plan JSON isn't at least as new, fall through
+   always safe; see root `CLAUDE.md`'s folder-auto-detection note if it
+   reports no `Requirements/` folder). If the test-plan JSON isn't at least as new, fall through
    to the full/delta flow (starting at step 1) and remember the docx half of
    step 15 at the end.
 2. **Generate the Word report**: `bash ./.qa-orchestrator
@@ -92,48 +93,44 @@ requirement document could state.
    NFR/compliance testing expectation typical for the domain). Consult
    before falling back to a TBD marker:
 
-   - **Domain-background vault** (the attached folder's `Knowledge Base/`). Served by
-     the persistent Knowledge Base Service, never `knowledge_base.search` —
-     deliberately: no vector search, embeddings, or chunking, and no
-     excerpt either. A retrieved file always comes back **complete**.
-     1. **Validate the service once per run, self-healing quietly** — the
-        same self-heal `requirement-analyzer` does for its own domain
-        investigation: `bash ./.qa-orchestrator knowledge_base.service
-        status`; `... service start` if `service_state` is `STOPPED`;
-        `... service load` if `kb_state` is `NOT_LOADED`; if `LOADING`,
-        poll `status` a few times and, if it's still loading, fall back to
-        the ordinary TBD discipline for every doubt this run. A `load`
-        landing in `kb_state: ERROR` (no `Knowledge Base/` folder, or one
-        that couldn't be read) means the same — fall back for the
-        rest of this run rather than retrying `load` again.
-     2. **Fetch the catalog once per run**: `... service catalog`, reused
-        for every later doubt — never re-fetched. An empty result (nothing
-        configured, or the vault has no notes) means there's nothing to
-        consult; fall back to the ordinary TBD discipline.
-     3. **Per doubt**, from the catalog already in hand, judge **every**
-        file genuinely relevant to it by their `purpose`/`topics` — no cap;
-        a doubt with several relevant files gets all of them. For each:
-        reuse a file you already retrieved earlier this run rather than
-        re-fetching it; otherwise `... service file "<name>"` for its
-        complete content. A file that comes back not-found for one
-        candidate just means try the next candidate, not a run-stopping
-        error. Nothing in the catalog looks relevant → fall back to the
-        ordinary TBD discipline, same as an empty search result.
+   - **Domain-background vault** (the attached folder's `Knowledge Base/`).
+     Consult its catalog, never `knowledge_base.search` — that module now
+     only ever reads `Requirements/`. No vector search, embeddings, or
+     chunking here either, and no excerpt: a read file always comes back
+     **complete**.
+     1. **Read the catalog once per run**, if one exists:
+        `output/knowledge-base/catalog.json`, built separately by the user
+        via `/build-kb-catalog` — never build or rebuild it yourself.
+        Missing entirely, or present with an empty `files` list → nothing
+        to consult; fall back to the ordinary TBD discipline for every
+        doubt this run.
+     2. **Per doubt**, from the catalog's `files` already in hand (never
+        re-read the catalog itself), judge **every** entry genuinely
+        relevant to it by its `purpose`/`description` — no cap; a doubt
+        with several relevant files gets all of them. For each: reuse a
+        file you already read earlier this run rather than re-reading it;
+        otherwise `Read` it at `<catalog's "folder">/<entry's "name">` for
+        its complete content. A file the catalog names but that's gone from
+        disk just means try the next candidate, not a run-stopping error —
+        the run is working from what may be a stale catalog. Nothing in the
+        catalog looks relevant → fall back to the ordinary TBD discipline,
+        same as an empty search result.
    - **Reading vault**: `bash ./.qa-orchestrator knowledge_base.search
-     "<specific doubt terms>" --source reading` (from
+     "<specific doubt terms>"` (from
      the attached folder's `Requirements/`, searched here at plan level, read
      straight off disk as ranked sections, no cap — every matching section
-     comes back, best first). `[]` means that source has no such note, or
-     the folder doesn't exist — fall back to the ordinary TBD discipline. A
-     result flagged `truncated` is a match-centred excerpt with `[...]`
-     where content was dropped: never quote across one, and `Read` the
-     note at the result's `path` if you need what's between.
+     comes back, best first; add `--folder "<name>"` if an earlier step this
+     run needed auto-detection to find it). `[]` means that source has no
+     such note, or the folder doesn't exist — fall back to the ordinary TBD
+     discipline. A result flagged `truncated` is a match-centred excerpt
+     with `[...]` where content was dropped: never quote across one, and
+     `Read` the note at the result's `path` if you need what's between.
 
-   Judge each result — a service file or a searched section — for genuine
-   relevance, not just that it matched your words. Cite anything you fold
-   into the plan (`[source: <source_file>]`). Bounded and as-needed: only
-   on a real doubt, never speculatively per section, never twice for the
-   same doubt.
+   Judge each result — a catalog-listed file or a searched section — for
+   genuine relevance, not just that it matched your words. Cite anything
+   you fold into the plan (`[source: <source_file>]`). Bounded and
+   as-needed: only on a real doubt, never speculatively per section, never
+   twice for the same doubt.
 
 4. **Derive Scope of Testing** per the skill: group requirements into
    functional in-scope areas with concrete items, populating each area's

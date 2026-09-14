@@ -22,14 +22,19 @@ requirement content or knowledge-base notes -- no separate exclusion rule
 to keep in sync.
 
 Usage:
-    python -m orchestrator.parsing.vault_writeback snapshot "<relative-file-path>"
+    python -m orchestrator.parsing.vault_writeback snapshot "<relative-file-path>" [--folder <name>]
+
+`--folder` is an exact top-level folder name to use instead of matching
+`Requirements` by convention -- for a client vault that names it something
+else entirely (see `orchestrator.utils.workspace`'s folder-auto-detection
+note). Not cached anywhere; supply it again on every run that needs it.
 
 Prints the absolute snapshot path on success and exits 0. Exits 1 -- with
 the reason on stderr -- when the attached folder has no `Requirements/`
-subfolder, the target file doesn't exist under it (or the given path
-resolves outside the vault entirely), or the copy itself fails. Any exit 1
-here means: do not edit the note -- the caller falls back to recording the
-clarification in the analysis JSON only.
+subfolder (nor the given `--folder`), the target file doesn't exist under
+it (or the given path resolves outside the vault entirely), or the copy
+itself fails. Any exit 1 here means: do not edit the note -- the caller
+falls back to recording the clarification in the analysis JSON only.
 """
 
 import argparse
@@ -81,10 +86,18 @@ def main() -> None:
     p_snapshot.add_argument(
         "relative_file_path", help="Path to the note, relative to the Requirements/ folder."
     )
+    p_snapshot.add_argument(
+        "--folder",
+        default=None,
+        help=(
+            "Exact top-level folder name to use instead of matching 'Requirements' by "
+            "convention -- for a client vault that names it something else entirely."
+        ),
+    )
 
     args = parser.parse_args()
 
-    vault = requirements_path()
+    vault = requirements_path(args.folder) if args.folder else requirements_path()
     if vault is None:
         print(
             "No Requirements/ folder found in the attached folder -- "

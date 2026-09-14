@@ -75,8 +75,8 @@ Then:
 
 1. `/analyse-requirement` — analyzes everything in `Requirements/`.
 2. `/generate-test-plan` and `/generate-test-cases` as needed.
-3. Optional: `/start-kb-service` → `/load-kb` to serve `Knowledge Base/` to
-   the agents; `/stop-kb-service` when done.
+3. Optional: `/build-kb-catalog` once (and again any time `Knowledge Base/`
+   notes change) to let the agents draw on it.
 
 Review the `.md` reports directly under `output/` — they already live in
 your vault.

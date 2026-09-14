@@ -1,6 +1,6 @@
 {
   "name": "qa-analyst",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Autonomous QA copilot for Cowork: requirement analysis, test planning, and test-case generation straight from the attached vault folder (Requirements/, optional Knowledge Base/). No settings file. Test automation is out of scope -- handled by a separate agent setup that consumes this plugin's generated test cases.",
   "author": {
     "name": "Akhil VN"

@@ -1,5 +1,12 @@
-"""Direct-from-markdown search over this project's two configured note
-sources -- the whole knowledge base, with no vector store in the middle.
+"""Direct-from-markdown search over the attached folder's `Requirements/`
+subfolder -- the per-requirement reasoning fallback, with no vector store
+in the middle. (The general domain-background source, `Knowledge Base/`,
+is a different, unrelated mechanism -- see `knowledge_base.catalog`: a
+deterministic catalog an agent scans, then reads a chosen file's complete
+content directly with `Read`. There is nothing to search there; ranked,
+excerpted sections are specifically this module's own answer to
+`Requirements/` being read for a single, often-vague doubt, not a whole
+file worth reading in full.)
 
 There used to be a Chroma DB here: notes were chunked, embedded, and
 upserted into collections by a separate manual `/sync-knowledge-base` pass,
@@ -11,18 +18,13 @@ module reads the `.md` files themselves, every time, so what an agent gets
 back is the client's own words at their real path, and there is no index to
 keep in sync with the notes it describes.
 
-    python -m orchestrator.knowledge_base.search "<query>" [--source vault|reading]
-                                                          [--max-chars N]
-    python -m orchestrator.knowledge_base.search --list [--source vault|reading]
+    python -m orchestrator.knowledge_base.search "<query>" [--folder <name>] [--max-chars N]
+    python -m orchestrator.knowledge_base.search --list [--folder <name>]
 
-`--source` picks which subfolder of the attached folder to read
-(`orchestrator.utils.workspace`):
-- `vault` (default): `Knowledge Base/` -- the general domain-background
-  source.
-- `reading`: `Requirements/` -- the per-requirement
-  fallback source, queried only when a requirement's own text isn't enough
-  to reason about confidently. (The same folder `parsing.reading_vault_fetch`
-  reads as the requirement input itself.)
+`--folder` is an exact top-level folder name to search instead of matching
+`Requirements` by convention -- for a client vault that names it something
+else entirely (see `orchestrator.utils.workspace`'s folder-auto-detection
+note). Not cached anywhere; supply it again on every call that needs it.
 
 `search` prints a JSON list of `{source_file, path, heading_path, text,
 truncated, score, matched_terms}`, best first -- `text` is the section's real
@@ -36,9 +38,8 @@ agent reads the named file directly with its own `Read` tool and gets the
 whole thing, exactly as written.
 
 A missing subfolder or simply no match both print `[]` and exit 0. A
-knowledge base is opt-in, so
-"nothing here" is an ordinary answer, never an error -- the caller falls
-back to the requirement text alone.
+missing `Requirements/` note isn't itself a gap -- the caller falls back to
+the requirement text alone.
 """
 
 import argparse
@@ -48,17 +49,6 @@ import sys
 from pathlib import Path
 
 from orchestrator.utils import workspace
-
-_SOURCES = {
-    "vault": {
-        "config_key": f"{workspace.KNOWLEDGE_BASE_DIRNAME}/",
-        "resolve": lambda: workspace.knowledge_base_path(),
-    },
-    "reading": {
-        "config_key": f"{workspace.REQUIREMENTS_DIRNAME}/",
-        "resolve": lambda: workspace.requirements_path(),
-    },
-}
 
 _SKIP_DIR_NAMES = {"node_modules"}
 
@@ -256,10 +246,8 @@ def _excerpt(text: str, terms: list[str], max_chars: int) -> tuple[str, bool]:
     return excerpt.strip(), True
 
 
-def _resolve_folder(source: str) -> Path | None:
-    if source not in _SOURCES:
-        raise ValueError(f"Unknown source '{source}' -- expected one of {sorted(_SOURCES)}.")
-    folder = _SOURCES[source]["resolve"]()
+def _resolve_folder(folder_override: str | None) -> Path | None:
+    folder = workspace.requirements_path(folder_override) if folder_override else workspace.requirements_path()
     if folder is None or not folder.is_dir():
         return None
     return folder
@@ -267,7 +255,7 @@ def _resolve_folder(source: str) -> Path | None:
 
 def search(
     query: str,
-    source: str = "vault",
+    folder_override: str | None = None,
     max_chars: int = DEFAULT_MAX_CHARS,
 ) -> list[dict]:
     """Every matching note section for `query`, best first -- no cap. A
@@ -280,17 +268,17 @@ def search(
     hide the rest.
 
     Each result carries the section's own markdown (`text`), where it came
-    from (`source_file` relative to the source folder, `path` absolute), and
+    from (`source_file` relative to `Requirements/`, `path` absolute), and
     whether what's shown is the whole section or a match-centred excerpt of
     an oversized one (`truncated`). `max_chars` caps each result's `text`;
     pass `0` for no cap.
 
-    Returns `[]` -- never raises -- when the source is unconfigured, its
-    folder is missing, or nothing matches. All three mean the same thing to
-    a caller: there is no knowledge-base answer here, reason from the
-    requirement text instead.
+    Returns `[]` -- never raises -- when `Requirements/` (or the given
+    `folder_override`) doesn't exist, or nothing matches. Both mean the same
+    thing to a caller: there is no knowledge-base answer here, reason from
+    the requirement text instead.
     """
-    folder = _resolve_folder(source)
+    folder = _resolve_folder(folder_override)
     if folder is None:
         return []
 
@@ -330,11 +318,12 @@ def search(
     return scored
 
 
-def list_notes(source: str = "vault") -> list[dict]:
-    """Every note in the source, with its size and heading outline -- the
-    map an agent uses to decide which file to `Read` in full when a searched
-    section isn't enough. `[]` when the source isn't configured."""
-    folder = _resolve_folder(source)
+def list_notes(folder_override: str | None = None) -> list[dict]:
+    """Every note under `Requirements/` (or `folder_override`), with its
+    size and heading outline -- the map an agent uses to decide which file
+    to `Read` in full when a searched section isn't enough. `[]` when the
+    folder isn't configured."""
+    folder = _resolve_folder(folder_override)
     if folder is None:
         return []
 
@@ -381,10 +370,12 @@ def main() -> None:
     )
     parser.add_argument("query", nargs="?", default=None)
     parser.add_argument(
-        "--source",
-        choices=sorted(_SOURCES),
-        default="vault",
-        help="Which configured folder to read. Defaults to 'vault'.",
+        "--folder",
+        default=None,
+        help=(
+            "Exact top-level folder name to search instead of matching 'Requirements' by "
+            "convention -- for a client vault that names it something else entirely."
+        ),
     )
     parser.add_argument(
         "--max-chars",
@@ -404,9 +395,9 @@ def main() -> None:
     args = parser.parse_args()
 
     if args.list_notes:
-        result = list_notes(source=args.source)
+        result = list_notes(folder_override=args.folder)
     elif args.query:
-        result = search(args.query, source=args.source, max_chars=args.max_chars)
+        result = search(args.query, folder_override=args.folder, max_chars=args.max_chars)
     else:
         parser.error("a query is required unless --list is passed")
         return

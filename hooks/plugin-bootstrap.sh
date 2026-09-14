@@ -110,16 +110,9 @@ fi
 
 # --- 3. Keep the bootstrap artifacts out of the user's own git history,
 #        without presuming to create a .gitignore that doesn't exist yet. ---
-# `.qa-kb-service/` is the Knowledge Base Service's own transient state dir
-# (port/pid/log files for its detached background process -- see
-# orchestrator/knowledge_base/service.py) -- gitignored here for the same
-# reason as the shim/deps-marker, independent of whether the service ever
-# actually gets started in this workspace.
-KB_SERVICE_DIR=".qa-kb-service"
 if [ -f ".gitignore" ]; then
   grep -qxF "$SHIM" .gitignore 2>/dev/null || printf '\n%s\n' "$SHIM" >> .gitignore
   grep -qxF "$DEPS_MARKER" .gitignore 2>/dev/null || printf '%s\n' "$DEPS_MARKER" >> .gitignore
-  grep -qxF "$KB_SERVICE_DIR" .gitignore 2>/dev/null || printf '%s\n' "$KB_SERVICE_DIR" >> .gitignore
 fi
 
 exit 0

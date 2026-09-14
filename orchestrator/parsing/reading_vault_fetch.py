@@ -9,7 +9,7 @@ There is no `.docx`/`.xlsx` requirement-document handling; a client's
 requirement notes live in `Requirements/` as `.md` files.
 
 This is deliberately separate from that same vault's other, pre-existing
-use: `knowledge_base.search --source reading` reads the same folder for the
+use: `knowledge_base.search` reads the same folder for the
 requirement-analyzer's per-requirement mid-analysis fallback queries (see
 that agent's step 5), returning only the sections a query matched. This
 script takes the whole folder unconditionally -- a plain filesystem read and
@@ -36,14 +36,20 @@ script when nothing in the vault changed must not itself look like a
 change.
 
 Usage:
-    python -m orchestrator.parsing.reading_vault_fetch
+    python -m orchestrator.parsing.reading_vault_fetch [--folder <name>]
+
+`--folder` is an exact top-level folder name to use instead of matching
+`Requirements` by convention -- for a client vault that names it something
+else entirely (see `orchestrator.utils.workspace`'s folder-auto-detection
+note). Not cached anywhere; supply it again on every run that needs it.
 
 Prints the resolved doc-name on the first line, then
 `source: <vault path> (<n> file(s) combined)` on the second, and exits 0.
-Exits 1 if the attached folder has no `Requirements/` subfolder, or it
-contains no `.md` files.
+Exits 1 if the attached folder has no `Requirements/` subfolder (nor the
+given `--folder`), or it contains no `.md` files.
 """
 
+import argparse
 import sys
 from pathlib import Path
 
@@ -80,12 +86,27 @@ def combine(vault: Path) -> tuple[str, int]:
 
 
 def main() -> None:
-    vault = requirements_path()
+    parser = argparse.ArgumentParser(
+        prog="python -m orchestrator.parsing.reading_vault_fetch",
+        description="Combine every .md file under Requirements/ into one staged requirement document.",
+    )
+    parser.add_argument(
+        "--folder",
+        default=None,
+        help=(
+            "Exact top-level folder name to use instead of matching 'Requirements' by "
+            "convention -- for a client vault that names it something else entirely."
+        ),
+    )
+    args = parser.parse_args()
+
+    vault = requirements_path(args.folder) if args.folder else requirements_path()
     if vault is None:
         print(
             "No Requirements/ folder found in the attached folder -- "
             "there is no requirement source to read. Create a Requirements/ "
-            "subfolder holding the requirement .md notes.",
+            "subfolder holding the requirement .md notes, or pass --folder "
+            '"<name>" if it\'s named something else.',
             file=sys.stderr,
         )
         sys.exit(1)

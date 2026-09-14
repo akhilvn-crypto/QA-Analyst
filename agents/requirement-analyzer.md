@@ -53,8 +53,14 @@ its result rather than re-deriving it:
    `<doc-name>` (the attached folder's name — use it for every output path
    this run, including step 2 below and step 1 of the Process); line 2 names
    the source folder and file count. It exits non-zero and prints why if
-   there's no `Requirements/` folder or it has no `.md` files — relay that
-   plainly and stop; there's nothing to analyze.
+   there's no `Requirements/` folder or it has no `.md` files. Before
+   relaying that as final, try auto-detection once: list the attached
+   folder's top-level entries yourself and use judgment to spot a folder
+   that plausibly holds the client's requirement notes under a different
+   name (`Specs`, `Reqs`, `User Stories`, `BRD`, and the like). Exactly one
+   plausible candidate → rerun with `--folder "<exact folder name>"` and
+   continue; more than one, or none → relay the original message plainly
+   and stop; there's nothing to analyze.
 2. Run `bash ./.qa-orchestrator validation.analysis_currency "<doc-name>"`.
    **Exit 0** ("changed: …") means the source is newer than the existing
    analysis, or there is no existing analysis yet — something genuinely
@@ -144,64 +150,57 @@ run. Don't re-run either check here; reuse that `<doc-name>`.
    Then investigate the domain-background Knowledge Base **deliberately** —
    never inject its whole content, never vector-search/embed/chunk it.
    Distinct from the **reading** vault in step 5 (a different, unrelated
-   source). This uses the Knowledge Base Service
-   (`orchestrator/knowledge_base/service.py`), a persistent process holding
-   the attached folder's `Knowledge Base/` subfolder in memory — not `knowledge_base.search`,
-   which stays reserved for step 5's reading-vault fallback. **Never fall
-   back to `knowledge_base.search --source vault` here even if it's
-   familiar** — that path still exists for other agents, but this step only
-   ever uses the service below.
+   source). This reads the Knowledge Catalog directly — a plain JSON file,
+   not `knowledge_base.search`, which stays reserved for step 5's
+   reading-vault fallback. **Never fall back to `knowledge_base.search`
+   against `Knowledge Base/` here even if it's familiar** — that module now
+   only ever reads `Requirements/`.
 
-   1. **Validate the service, self-healing quietly.** `bash
-      ./.qa-orchestrator knowledge_base.service status`. If `service_state`
-      is `STOPPED`, run `... service start`; if `kb_state` is `NOT_LOADED`,
-      run `... service load`; if `LOADING`, poll `status` a few times and
-      proceed on requirement text alone if it's still loading. This
-      self-healing is yours to do automatically — unlike `/kb-status` and
-      the other three commands a human runs directly, which always report
-      the service's exact state and never start/load anything on their own.
-      If `load` lands in `kb_state: ERROR`: when the error says there's no
-      `Knowledge Base/` folder, that's ordinary (a knowledge base is
-      optional) — just proceed on requirement text alone. Any other error
-      (the folder exists but couldn't be read), note it in
-      `meta.extraction_manifest` so it doesn't stay silently invisible run
-      after run, then proceed on requirement text alone.
-   2. **Fetch the catalog once**: `... service catalog`. An empty result
-      (nothing configured, or the vault has no notes) means there's nothing
-      to investigate — proceed on requirement text alone, exactly like an
-      empty `knowledge_base.search` result always has.
-   3. **Generate investigation questions once**, from the combined
+   1. **Read the catalog**, if one exists:
+      `output/knowledge-base/catalog.json`, built separately by the user via
+      `/build-kb-catalog` — this agent never builds or rebuilds it, and
+      never invokes that command itself. Missing entirely, or present with
+      an empty `files` list → nothing to investigate; note that in
+      `meta.extraction_manifest` (suggesting `/build-kb-catalog` if the
+      `Knowledge Base/` folder plainly exists but no catalog does) and
+      proceed on requirement text alone, exactly like an unconfigured
+      Knowledge Base always has.
+   2. **Generate investigation questions once**, from the combined
       requirement document and this step's domain inference — questions
       like "does similar functionality already exist?", "which roles or
       permissions apply?", "which workflows might this affect?". No fixed
       count: ask as many as the requirement genuinely raises, not a round
       number picked in advance.
-   4. **Per question, in order**: from the catalog already in hand (never
-      re-fetch it), judge **every** file genuinely relevant to that
-      question by their `purpose`/`topics` — no per-question cap; a
-      question with several relevant files gets all of them, not a
-      truncated subset. For each: if you already retrieved it earlier this
-      run, reuse that content — never re-fetch a file you're already
-      holding; otherwise `... service file "<name>"` for its **complete**
-      content (never an excerpt — the whole file, this being the one place
-      in this document where a knowledge source is read whole rather than
-      section-scored) and analyze it against that question. A file that
-      comes back not-found for one candidate just means try the next
-      candidate for that question, not a run-stopping error.
-   5. **No second round of question generation.** A retrieved file may
-      answer or inform the question it was fetched for, but never spawns a
-      *new* question — this is what keeps the investigation a single bounded
-      pass (one round of questions, each pursued to completion) rather than
-      the "repeat until satisfied" judgment call it might otherwise be. It's
-      the number of *rounds*, not the number of questions or files within
-      the round, that stays fixed.
-   6. **Label what you found by where it came from**, feeding steps 6–8
-      below rather than a separate output field: content the retrieved file
-      states outright → cite it (`[source: <file>]`) and treat it as
-      confirmed fact. Nothing found, but a domain convention from the
-      skill's Domain Knowledge Reasoning applies → state it as an assumed
-      default, same as always. Genuinely undetermined even after
-      investigating → a gap, same as always.
+   3. **Per question, in order**: from the catalog's `files` already in hand
+      (never re-read the catalog itself), judge **every** entry genuinely
+      relevant to that question by its `purpose`/`description` — no
+      per-question cap; a question with several relevant files gets all of
+      them, not a truncated subset. For each: if you already read it
+      earlier this run, reuse that content — never re-read a file you're
+      already holding; otherwise `Read` it at `<catalog's "folder">/<entry's
+      "name">` for its **complete** content (never an excerpt — the whole
+      file, this being the one place in this document where a knowledge
+      source is read whole rather than section-scored) and analyze it
+      against that question. A file the catalog names but that's gone from
+      disk (a note deleted or renamed since the catalog was last built)
+      just means try the next candidate for that question, not a
+      run-stopping error — note it in `meta.extraction_manifest` so a stale
+      catalog doesn't stay silently invisible run after run, and suggest
+      re-running `/build-kb-catalog`.
+   4. **No second round of question generation.** A file read for one
+      question may answer or inform it, but never spawns a *new* question —
+      this is what keeps the investigation a single bounded pass (one round
+      of questions, each pursued to completion) rather than the "repeat
+      until satisfied" judgment call it might otherwise be. It's the number
+      of *rounds*, not the number of questions or files within the round,
+      that stays fixed.
+   5. **Label what you found by where it came from**, feeding steps 6–8
+      below rather than a separate output field: content a read file states
+      outright → cite it (`[source: <file>]`) and treat it as confirmed
+      fact. Nothing found, but a domain convention from the skill's Domain
+      Knowledge Reasoning applies → state it as an assumed default, same as
+      always. Genuinely undetermined even after investigating → a gap, same
+      as always.
 
 4. **Detect interconnections and contradictions** using the skill's
    Cross-requirement analysis guidance — the second-pass
@@ -219,7 +218,9 @@ run. Don't re-run either check here; reuse that `<doc-name>`.
      the document never explains, or otherwise leaves a real reasoning gap)
      → search the **reading** notes: `bash ./.qa-orchestrator
      knowledge_base.search "<requirement text or the specific missing
-     term>" --source reading`.
+     term>"` (add `--folder "<name>"` if Mode selection's step 1 needed
+     auto-detection to find `Requirements/` this run — nothing about that
+     folder name is remembered between calls).
 
    `[]` → fall back to the requirement text alone; an empty result is not
    itself a gap. Judge relevance and cite as in step 3. Per-requirement and
@@ -489,15 +490,13 @@ not re-analyze the whole document.
   it's the only path that reaches it at all.
 - Follow the output-structure skill for all file naming, field/section
   conventions, and sort order.
-- **Step 3's Knowledge Base Service calls only ever touch
-  `Knowledge Base/`** — never `Requirements/`, which stays exactly as
-  before (step 5's `knowledge_base.search --source
-  reading`, and `parsing.reading_vault_fetch`'s requirement-input role).
-  Self-healing a `STOPPED`/`NOT_LOADED` service is something *this agent*
-  does automatically as part of its own investigation; never do the same
-  when a human runs `/kb-status`, `/start-kb-service`, `/load-kb`, or
-  `/stop-kb-service` directly (that's `knowledge-base-service`'s job, and it
-  always reports the service's exact state, never self-heals).
+- **Step 3's catalog read only ever touches `Knowledge Base/`** — never
+  `Requirements/`, which stays exactly as before (step 5's
+  `knowledge_base.search`, and `parsing.reading_vault_fetch`'s
+  requirement-input role). **Never build or rebuild the catalog yourself**
+  — a missing or stale one is an ordinary fallback to reason from
+  requirement text alone, not something to fix mid-run; rebuilding it is
+  always a deliberate, separate `/build-kb-catalog` invocation by the user.
 - **Never generate Gap IDs, Gap Types, Risk Scores, Business Impact, or
   Complexity** — retired. The only requirement-level output fields are
   Requirement ID, Title, Category, Requirement, Gap, Client Question,

@@ -88,7 +88,9 @@ at step 11.
      (the attached folder's `Requirements/`), read straight off disk as ranked
      sections, no cap — every matching section comes back, best first: `bash
      ./.qa-orchestrator knowledge_base.search "<requirement text or the
-     specific missing detail>" --source reading`.
+     specific missing detail>"` (add `--folder "<name>"` if an earlier step
+     this run needed auto-detection to find `Requirements/` — see the
+     folder-auto-detection note in root `CLAUDE.md`).
      `[]` means that source has no such note, or the folder doesn't exist —
      fall back to the framework's generic-placeholder discipline rather
      than guessing. Judge each section for genuine relevance — it matched
@@ -99,33 +101,29 @@ at step 11.
 
    - **Domain-background vault** — only if the doubt is a general domain
      convention rather than specific to this requirement
-     (the attached folder's `Knowledge Base/`). Served by the persistent Knowledge Base
-     Service, never `knowledge_base.search` — deliberately: no vector
-     search, embeddings, or chunking, and no excerpt either. A retrieved
-     file always comes back **complete**.
-     1. **Validate the service once per run, self-healing quietly** — the
-        same self-heal `requirement-analyzer` does for its own domain
-        investigation: `bash ./.qa-orchestrator knowledge_base.service
-        status`; `... service start` if `service_state` is `STOPPED`;
-        `... service load` if `kb_state` is `NOT_LOADED`; if `LOADING`,
-        poll `status` a few times and, if it's still loading, fall back to
-        the generic-placeholder discipline for every doubt this run. A
-        `load` landing in `kb_state: ERROR` (a *configured* path that's
-        missing or unreadable, not merely unset) means the same — fall
-        back for the rest of this run rather than retrying `load` again.
-     2. **Fetch the catalog once per run**: `... service catalog`, reused
-        for every later doubt — never re-fetched. An empty result (nothing
-        configured, or the vault has no notes) means there's nothing to
-        consult; fall back to the generic-placeholder discipline.
-     3. **Per doubt**, from the catalog already in hand, judge **every**
-        file genuinely relevant to it by their `purpose`/`topics` — no cap;
-        a doubt with several relevant files gets all of them. For each:
-        reuse a file you already retrieved earlier this run rather than
-        re-fetching it; otherwise `... service file "<name>"` for its
-        complete content. A file that comes back not-found for one
-        candidate just means try the next candidate, not a run-stopping
-        error. Nothing in the catalog looks relevant → fall back to the
-        generic-placeholder discipline, same as an empty search result.
+     (the attached folder's `Knowledge Base/`). Consult its catalog, never
+     `knowledge_base.search` — that module now only ever reads
+     `Requirements/`. No vector search, embeddings, or chunking here either,
+     and no excerpt: a read file always comes back **complete**.
+     1. **Read the catalog once per run**, if one exists:
+        `output/knowledge-base/catalog.json`, built separately by the user
+        via `/build-kb-catalog` — never build or rebuild it yourself.
+        Missing entirely, or present with an empty `files` list → nothing
+        to consult; fall back to the generic-placeholder discipline for
+        every doubt this run.
+     2. **Per doubt**, from the catalog's `files` already in hand (never
+        re-read the catalog itself), judge **every** entry genuinely
+        relevant to it by its `purpose`/`description` — no cap; a doubt
+        with several relevant files gets all of them. For each: reuse a
+        file you already read earlier this run rather than re-reading it;
+        otherwise `Read` it at `<catalog's "folder">/<entry's "name">` for
+        its complete content. A file the catalog names but that's gone from
+        disk (deleted or renamed since the catalog was last built) just
+        means try the next candidate, not a run-stopping error — the run is
+        working from what may be a stale catalog; mention that in step 12's
+        report rather than staying silent about it. Nothing in the catalog
+        looks relevant → fall back to the generic-placeholder discipline,
+        same as an empty search result.
 
    Cite anything you fold in (`[source: <source_file>]`) on that step's
    data or expected result. Bounded and as-needed: only on a real doubt for

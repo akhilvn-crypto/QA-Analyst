@@ -1,11 +1,11 @@
 ## Orchestrator conventions
 
 `parsing/` input→markdown · `generation/` writes deliverables (docx/xlsx/csv)
-· `knowledge_base/` direct markdown search (`search.py`, still used by
-test-case/test-plan agents and the reading vault) plus a persistent
-in-memory service for the domain-background vault (`service.py`, its own
-background HTTP process — see root `CLAUDE.md`'s "Knowledge base service")
-· `validation/` deterministic JSON checks ·
+· `knowledge_base/` direct markdown search over `Requirements/` only
+(`search.py`) plus the deterministic Knowledge Catalog build for the
+domain-background vault (`catalog.py` — see root `CLAUDE.md`'s "Knowledge
+base catalog"; no service, no lifecycle, one JSON file) ·
+`validation/` deterministic JSON checks ·
 `models/` data structures only · `utils/` generic helpers only · `templates/`
 static assets copied verbatim, never generated · `tests/` pytest, run via
 `python -m pytest orchestrator/tests -q`. New logic goes in the matching

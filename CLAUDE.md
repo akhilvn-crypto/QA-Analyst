@@ -20,10 +20,7 @@ features) lives outside this folder.
 .claude-plugin/
   plugin.json  plugin manifest (name/version/description/author)
 agents/       5 subagent definitions (*.md)
-commands/     9 slash commands (*.md) — one per agent, except
-              knowledge-base-service, which backs four /start-kb-service,
-              /load-kb, /kb-status, /stop-kb-service commands distinguished
-              by a verb
+commands/     6 slash commands (*.md) — one per agent
 skills/       framework + output-structure skills (*/SKILL.md); each
               *-output-structure skill also has a reference/ folder that
               is NOT auto-loaded
@@ -59,16 +56,17 @@ found by convention in `orchestrator/utils/workspace.py`:
 | Path in the attached folder | Role | Missing means |
 |---|---|---|
 | `Requirements/` | **The requirement input source** — and a reasoning-time fallback (see below) | Nothing to analyze; `/analyse-requirement` says so and stops |
-| `Knowledge Base/` | General domain-background notes, served by the Knowledge Base Service | Opt-in — agents reason from requirement text alone |
+| `Knowledge Base/` | General domain-background notes, cataloged by `/build-kb-catalog` | Opt-in — agents reason from requirement text alone |
 | `Branding/` | `header-logo.png` / `project-logo.png` overrides | Bundled `assets/branding/` logos are used |
 | `Project Info.md` | YAML frontmatter `name`, `designation`, `projectName`, `projectId` — the identity every execution-log entry attributes a revision to | Fields render as `"TBD – Client/Project Input Required"` |
 | `output/` | All generated deliverables, plus the staged `<doc-name>-source.md` | Self-creates on first write |
 
 Subfolder/file names match ignoring case, spaces, `-` and `_`
 (`knowledge-base/` works). Nothing is cached — every lookup reads the
-folder as it is now, including inside the long-lived KB service.
-`<doc-name>` is the **attached folder's own name**, used for every output
-path.
+folder as it is now. When a vault names one of these folders something
+that convention match can't recognize at all, see "Folder auto-detection"
+below. `<doc-name>` is the **attached folder's own name**, used for every
+output path.
 
 There is **no handoff step**: deliverables are written straight into the
 attached folder's `output/`, which is where the user already works.
@@ -88,45 +86,83 @@ is combined by `parsing.reading_vault_fetch` into the document
 the agents query only when a requirement's own text isn't enough to reason
 about.
 
-## Knowledge base service
+## Knowledge base catalog
 
-`Knowledge Base/` (only — `Requirements/` is untouched, see above) is
-served by a persistent **Knowledge Base Service**, this project's one
-long-lived background process (`orchestrator/knowledge_base/service.py`),
-rather than being read fresh off disk on every call the way `Requirements/`
-still is. Explicit lifecycle: `/start-kb-service` → `/load-kb` (builds an
-in-memory Knowledge Base + a separate Catalog of file name/purpose/topics,
-atomically — a failed reload never exposes partial data or discards a
-previously good Knowledge Base) → agents investigate against it →
-`/stop-kb-service` releases the memory. `/kb-status` reports the current
-state at any time; all four are pure, deterministic wrappers
-(`knowledge-base-service` agent) around
-`bash ./.qa-orchestrator knowledge_base.service <start|load|status|stop>`.
+`Knowledge Base/` (only — `Requirements/` is untouched, see below) is
+served by a single deterministic command, **`/build-kb-catalog`**, run
+directly by the user whenever they add, edit, or remove notes there — a
+pure, no-lifecycle replacement for what used to be a persistent background
+service (start/load/status/stop, an in-memory hot-swap, its own HTTP
+client). That was a lot of machinery for what agents actually need: a small
+map of what's there. `/build-kb-catalog` (the `knowledge-base-catalog`
+agent, a deterministic wrapper) runs
+`bash ./.qa-orchestrator knowledge_base.catalog`, which scans every `.md`
+file under `Knowledge Base/` and writes one JSON file,
+`output/knowledge-base/catalog.json`: that folder's own resolved path, plus
+one `{name, purpose, description}` entry per note — never a file's content,
+which is what keeps the catalog small enough to scan whole. No vector
+search, embeddings, or chunking anywhere in this path.
 
-All three generator agents query this service, each **deliberately, never
-automatically**: `requirement-analyzer` runs one upfront domain
-investigation (investigation questions generated once from the requirement,
-no fixed count; every file the catalog's `purpose`/`topics` judge genuinely
-relevant to a question is retrieved, no per-question cap) so relevant
-knowledge is never left out for the sake of a round number;
-`test-case-generator`/`test-plan-generator` query it ad hoc, one genuine
-doubt at a time, while drafting (every genuinely relevant file retrieved per
-doubt, never speculatively). All three follow the same shape: fetch the Catalog
-once per run, judge relevant files by `purpose`/`topics`, retrieve each
-**complete** file from memory — no vector search, embeddings, or chunking
-anywhere in this path — reusing a file already fetched this run rather than
-re-fetching it. All three also self-heal a stopped/unloaded service
-transparently as part of that step; the four commands above never do, and
-always report the service's exact state.
+All three generator agents **read this file directly with their own `Read`
+tool**, each deliberately, never automatically: `requirement-analyzer` runs
+one upfront domain investigation (investigation questions generated once
+from the requirement, no fixed count; every entry the catalog's
+`purpose`/`description` judge genuinely relevant to a question is read, no
+per-question cap) so relevant knowledge is never left out for the sake of a
+round number; `test-case-generator`/`test-plan-generator` consult it ad
+hoc, one genuine doubt at a time, while drafting (every genuinely relevant
+file read per doubt, never speculatively). All three judge relevance from
+the catalog's `purpose`/`description`, then `Read` a relevant entry's
+**complete** file at `<catalog's "folder">/<entry's "name">` — reusing one
+already read this run rather than re-reading it.
+
+None of the three ever builds or rebuilds the catalog, and none of them
+self-heals a missing or stale one — that's a deliberate simplification, not
+an oversight: a missing catalog (never built, or the `Knowledge Base/`
+folder itself absent) is an ordinary fallback to requirement text alone,
+exactly like an unconfigured knowledge base always has been; a *stale* one
+(built before a note was added or edited) is quietly used as-is, on the
+same "reason from what you have" principle every other TBD/gap discipline
+in this project already follows — the user reruns `/build-kb-catalog`
+themselves when they know their notes changed. There is no notion of the
+catalog auto-refreshing mid-analysis.
 
 `Requirements/` is untouched by any of this. All three agents still reach
 it, when a doubt or a requirement's own text isn't enough, through
-`knowledge_base.search`'s direct-disk-read `reading` source — ranked
-sections, **every match returned, no cap**: a silent cutoff is the wrong
-failure mode for a search an agent only reaches for when it's genuinely
-unsure — better to hand back everything that matched (the agent already
-judges each result for relevance itself) than to guess how many are
-"enough" and hide the rest.
+`knowledge_base.search` — ranked sections read straight off disk,
+**every match returned, no cap**: a silent cutoff is the wrong failure mode
+for a search an agent only reaches for when it's genuinely unsure — better
+to hand back everything that matched (the agent already judges each result
+for relevance itself) than to guess how many are "enough" and hide the
+rest. (`knowledge_base.search` only ever reads `Requirements/` now — the
+general domain-background source above it used to also serve is the
+catalog's job instead.)
+
+## Folder auto-detection
+
+Every script that resolves `Requirements/` or `Knowledge Base/`
+(`orchestrator.utils.workspace.requirements_path`/`knowledge_base_path`)
+tries the convention match described above first — exact name, then
+ignoring case/spaces/`-`/`_`. When that finds nothing at all, the
+*invoking agent* — not any Python code — is the fallback: list the attached
+folder's top-level entries itself (`Read`/`Bash ls`) and use judgment to
+spot a folder that plausibly serves that role under a different name
+(`Specs`, `Reqs`, `User Stories`, `BRD` for requirements; `Domain
+Knowledge`, `Reference`, `Notes`, `Wiki`, `Background` for the knowledge
+base). Exactly one plausible candidate → pass it straight through as
+`--folder "<exact name>"` to whichever script needed it
+(`parsing.reading_vault_fetch`, `parsing.vault_writeback`,
+`knowledge_base.search`, `knowledge_base.catalog` all accept it). More than
+one plausible candidate, or none → ask the user rather than guessing.
+
+There is no settings file to remember that choice in, so it isn't
+persisted anywhere — a later command that needs the same folder repeats the
+same judgment call against the same static listing, which is what "nothing
+is cached" already means everywhere else in this project, extended to
+folder identity too. An agent that has to auto-detect a folder should say
+so plainly, so the user knows to either keep supplying `--folder` calls
+that don't happen automatically, or simply rename the folder to the
+conventional name so every future command finds it without help.
 
 ## Requirement input model
 
