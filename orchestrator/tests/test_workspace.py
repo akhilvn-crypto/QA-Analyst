@@ -42,6 +42,19 @@ def test_a_file_never_satisfies_a_folder_lookup(root):
     assert workspace.requirements_path() is None
 
 
+def test_folder_override_resolves_an_exact_top_level_name_regardless_of_convention(root):
+    (root / "Specs").mkdir()
+
+    assert workspace.requirements_path("Specs") == root / "Specs"
+    assert workspace.knowledge_base_path("Domain Knowledge") is None
+
+
+def test_folder_override_never_falls_back_to_the_conventional_name(root):
+    (root / "Requirements").mkdir()
+
+    assert workspace.requirements_path("Nonexistent") is None
+
+
 def test_document_name_is_the_attached_folder_name(root):
     assert workspace.document_name() == "LinkGrid"
 

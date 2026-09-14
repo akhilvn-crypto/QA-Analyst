@@ -112,38 +112,18 @@ def exported_reports_dir() -> Path:
     return output_dir("reports")
 
 
-def kb_service_dir() -> Path:
-    """Transient state for the Knowledge Base Service's own background
-    process -- not a deliverable, never snapshotted or validated (same
-    treatment as `run_results_path`'s folder), and gitignored by
-    `plugin-bootstrap.sh` the same way it gitignores `.qa-orchestrator`.
-    Dot-prefixed so it reads as tooling, not project content."""
-    return WORKSPACE_ROOT / ".qa-kb-service"
-
-
-def kb_service_port_path() -> Path:
-    """The port the running service's detached HTTP server actually bound
-    (it asks the OS for a free one rather than assuming a fixed port -- see
-    `orchestrator/knowledge_base/service.py`). Written atomically the
-    instant the server binds; a caller polls for this file's existence
-    rather than assuming a port number."""
-    return kb_service_dir() / "service.port"
-
-
-def kb_service_pid_path() -> Path:
-    """The detached server process's PID -- kept only as a `stop`
-    force-kill fallback if a graceful shutdown doesn't finish in time.
-    Liveness itself is always checked over the network (`GET /status`),
-    never by this PID, since cross-platform PID-liveness checks are
-    unreliable on Windows."""
-    return kb_service_dir() / "service.pid"
-
-
-def kb_service_log_path() -> Path:
-    """Where the detached server's stdout/stderr are redirected -- the
-    only place to look when `start` succeeds but the service later
-    misbehaves, since a detached process has no console of its own."""
-    return kb_service_dir() / "service.log"
+def kb_catalog_path() -> Path:
+    """The Knowledge Catalog `/build-kb-catalog` writes and every generator
+    agent reads directly with `Read` -- name/purpose/description per note
+    under the attached folder's `Knowledge Base/` subfolder, plus that
+    folder's own resolved path so a reader knows where to `Read` a named
+    file from. Not a client deliverable (no `meta`/`document_control`
+    shape, never snapshotted, validated, or logged) -- an internal working
+    file, same tier as the staged `<doc-name>-source.md`, which is why it
+    lives under `output/` without a per-document name: there is exactly one
+    Knowledge Base per workspace, same singular assumption as
+    `Requirements/`."""
+    return WORKSPACE_ROOT / "output" / "knowledge-base" / "catalog.json"
 
 
 def _logo_path(filename: str) -> Path:

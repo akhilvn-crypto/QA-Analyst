@@ -19,13 +19,23 @@ resolve -- a vault's own naming habits never have to change to suit this
 plugin, and Cowork's case-sensitive Linux sandbox behaves the same as a
 Windows host.
 
+When a client vault names one of these folders something this convention
+match can't recognize at all (`Specs/` instead of any spelling of
+`Requirements`, say), `requirements_path`/`knowledge_base_path` take an
+optional `folder_override` -- an exact top-level folder name -- so an agent
+that has already listed the workspace root itself and used its own
+judgment to identify the right folder can hand that name straight through,
+without this module trying to be clever about it. There is nowhere to
+persist that choice (no settings file), so it's re-supplied on whichever
+call needs it, same as everything else here being resolved fresh rather
+than cached.
+
 There is no handoff destination: deliverables are written straight into
 this same folder's `output/`, which is already where the user works.
 
 Nothing is cached -- every call reads the folder as it is right now, so a
 subfolder created mid-session (e.g. adding `Knowledge Base/` before
-`/load-kb`) is picked up by the very next call, including inside the
-long-lived Knowledge Base Service process.
+`/build-kb-catalog`) is picked up by the very next call.
 """
 
 import re
@@ -68,16 +78,27 @@ def _find_child(name: str, *, want_dir: bool) -> Path | None:
     return None
 
 
-def requirements_path() -> Path | None:
+def requirements_path(folder_override: str | None = None) -> Path | None:
     """The `Requirements/` subfolder -- `None` when the attached folder has
-    none, meaning there is no requirement source to analyze."""
+    none, meaning there is no requirement source to analyze.
+
+    `folder_override`, when given, is an exact top-level folder name to use
+    instead of matching `Requirements` by convention -- see the module
+    docstring's folder-auto-detection note. `None` if that exact name isn't
+    a directory of the workspace either."""
+    if folder_override:
+        candidate = workspace_root() / folder_override
+        return candidate if candidate.is_dir() else None
     return _find_child(REQUIREMENTS_DIRNAME, want_dir=True)
 
 
-def knowledge_base_path() -> Path | None:
+def knowledge_base_path(folder_override: str | None = None) -> Path | None:
     """The `Knowledge Base/` subfolder -- `None` when absent. Optional: no
     knowledge base simply means agents reason from the requirement text
-    alone."""
+    alone. See `requirements_path` for `folder_override`."""
+    if folder_override:
+        candidate = workspace_root() / folder_override
+        return candidate if candidate.is_dir() else None
     return _find_child(KNOWLEDGE_BASE_DIRNAME, want_dir=True)
 
 

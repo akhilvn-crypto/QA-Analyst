@@ -3,6 +3,8 @@ every .md file under the attached folder's Requirements/ subfolder into
 one staged markdown document. No LLM authorship, no embeddings; just a
 deterministic read-and-concatenate."""
 
+import sys
+
 import pytest
 
 from orchestrator.parsing import reading_vault_fetch
@@ -20,6 +22,7 @@ def isolated(monkeypatch, tmp_path):
 
 def test_no_requirements_folder_exits_1(isolated, monkeypatch, capsys):
     monkeypatch.setattr(reading_vault_fetch, "requirements_path", lambda: None)
+    monkeypatch.setattr(sys, "argv", ["prog"])
 
     with pytest.raises(SystemExit) as exc:
         reading_vault_fetch.main()
@@ -33,6 +36,7 @@ def test_no_md_files_exits_1(isolated, monkeypatch, capsys, tmp_path):
     vault.mkdir()
     (vault / "notes.txt").write_text("x", encoding="utf-8")  # not a candidate suffix
     monkeypatch.setattr(reading_vault_fetch, "requirements_path", lambda: vault)
+    monkeypatch.setattr(sys, "argv", ["prog"])
 
     with pytest.raises(SystemExit) as exc:
         reading_vault_fetch.main()
@@ -46,6 +50,7 @@ def test_single_md_file_is_staged_with_doc_name_from_attached_folder(isolated, m
     vault.mkdir()
     (vault / "Checkout.md").write_text("The system shall allow checkout.", encoding="utf-8")
     monkeypatch.setattr(reading_vault_fetch, "requirements_path", lambda: vault)
+    monkeypatch.setattr(sys, "argv", ["prog"])
 
     with pytest.raises(SystemExit) as exc:
         reading_vault_fetch.main()
@@ -67,6 +72,7 @@ def test_multiple_md_files_are_combined_into_one_document(isolated, monkeypatch,
     (vault / "Alpha.md").write_text("Alpha requirement text.", encoding="utf-8")
     (vault / "Beta.md").write_text("Beta requirement text.", encoding="utf-8")
     monkeypatch.setattr(reading_vault_fetch, "requirements_path", lambda: vault)
+    monkeypatch.setattr(sys, "argv", ["prog"])
 
     with pytest.raises(SystemExit) as exc:
         reading_vault_fetch.main()
@@ -87,6 +93,7 @@ def test_unchanged_content_does_not_rewrite_or_touch_mtime(isolated, monkeypatch
     vault.mkdir()
     (vault / "Alpha.md").write_text("Alpha requirement text.", encoding="utf-8")
     monkeypatch.setattr(reading_vault_fetch, "requirements_path", lambda: vault)
+    monkeypatch.setattr(sys, "argv", ["prog"])
 
     with pytest.raises(SystemExit):
         reading_vault_fetch.main()
@@ -105,6 +112,7 @@ def test_changed_content_rewrites_the_staged_file(isolated, monkeypatch, capsys,
     source = vault / "Alpha.md"
     source.write_text("Original text.", encoding="utf-8")
     monkeypatch.setattr(reading_vault_fetch, "requirements_path", lambda: vault)
+    monkeypatch.setattr(sys, "argv", ["prog"])
 
     with pytest.raises(SystemExit):
         reading_vault_fetch.main()
@@ -124,6 +132,7 @@ def test_obsidian_bookkeeping_folder_is_excluded(isolated, monkeypatch, capsys, 
     (vault / ".obsidian" / "config.md").write_text("x", encoding="utf-8")
     (vault / "Real.md").write_text("Real requirement.", encoding="utf-8")
     monkeypatch.setattr(reading_vault_fetch, "requirements_path", lambda: vault)
+    monkeypatch.setattr(sys, "argv", ["prog"])
 
     with pytest.raises(SystemExit) as exc:
         reading_vault_fetch.main()
@@ -145,6 +154,7 @@ def test_any_dot_prefixed_folder_is_excluded(isolated, monkeypatch, capsys, tmp_
     (vault / ".history" / "Real.md").write_text("Stale pre-edit snapshot.", encoding="utf-8")
     (vault / "Real.md").write_text("Real requirement.", encoding="utf-8")
     monkeypatch.setattr(reading_vault_fetch, "requirements_path", lambda: vault)
+    monkeypatch.setattr(sys, "argv", ["prog"])
 
     with pytest.raises(SystemExit) as exc:
         reading_vault_fetch.main()
