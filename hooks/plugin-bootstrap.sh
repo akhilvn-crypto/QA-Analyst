@@ -28,11 +28,12 @@
 # nothing else in the plugin-install flow does this.
 #
 # Deliberately does NOT scaffold anything in the attached folder. There is
-# no settings file: `Requirements/`, `Knowledge Base/`, `Branding/` and
-# `Project Info.md` are the user's own vault content, discovered by
-# convention (`orchestrator/utils/workspace.py`). `output/` self-creates via
-# every writer's own `path.parent.mkdir(parents=True, exist_ok=True)`, and
-# default logos ship bundled under this plugin's `assets/branding/`.
+# no settings file: `Requirements/`, `Knowledge Base/` and `Branding/` are
+# the user's own vault content, discovered by convention
+# (`orchestrator/utils/workspace.py`). `output/` self-creates via
+# every writer's own `path.parent.mkdir(parents=True, exist_ok=True)`. The
+# plugin ships no default logos of its own -- a workspace with no
+# `Branding/` folder just renders reports without one.
 #
 # Python resolution: Cowork runs sessions in a Linux sandbox where only
 # `python3` may exist, while Windows hosts usually only have `python`. The

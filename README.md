@@ -50,26 +50,13 @@ and lay it out like this — the plugin finds everything by folder name:
 <client vault>/
   Requirements/      requirement .md notes              (required)
   Knowledge Base/    domain-background .md notes        (optional)
-  Branding/          header-logo.png, project-logo.png  (optional — overrides the bundled Emvigo logos)
-  Project Info.md    who's running QA                   (optional)
+  Branding/          header-logo.png, project-logo.png  (optional — no bundled default; reports render without a logo if absent)
   output/            generated deliverables             (created automatically)
 ```
 
 Folder names are matched ignoring case, spaces, `-` and `_`
 (`knowledge-base` works too). Deliverables are named after the attached
 folder (e.g. `LinkGrid-analysis.md`).
-
-`Project Info.md` supplies the identity recorded on every revision in
-`execution-log/`; any field left out shows as `TBD`:
-
-```markdown
----
-name: Your Name
-designation: QA Lead
-projectName: LinkGrid
-projectId: LG-001
----
-```
 
 Then:
 

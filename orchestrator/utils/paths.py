@@ -12,19 +12,20 @@ between, unlike this system's pre-plugin, multi-project-per-repo form.
 `REPO_ROOT` is a different thing entirely: it's this *plugin's own* install
 directory, resolved via `__file__` (so it's correct regardless of the
 caller's `cwd`), used only for bundled, read-only assets shipped with the
-plugin itself (`orchestrator/templates/`, and the default logos under
-`assets/branding/` -- see `header_logo_path`/`project_logo_path` below) --
-never for anything workspace/project-specific.
+plugin itself (`orchestrator/templates/`) -- never for anything
+workspace/project-specific.
 
 User inputs inside the workspace (`Requirements/`, `Knowledge Base/`,
-`Branding/`, `Project Info.md`) are resolved by convention in
-`orchestrator.utils.workspace` -- there is no settings file.
+`Branding/`) are resolved by convention in `orchestrator.utils.workspace` --
+there is no settings file. Logos are one of those user inputs, not a
+plugin asset: the plugin ships no default branding at all, so
+`header_logo_path`/`project_logo_path` below resolve solely to the
+attached folder's own `Branding/` -- present or not.
 """
 
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-BRANDING_ASSETS_ROOT = REPO_ROOT / "assets" / "branding"
 WORKSPACE_ROOT = Path.cwd()
 
 
@@ -127,22 +128,23 @@ def kb_catalog_path() -> Path:
 
 
 def _logo_path(filename: str) -> Path:
-    from orchestrator.utils.workspace import branding_path
+    from orchestrator.utils.workspace import branding_path, workspace_root
 
     override_dir = branding_path()
-    if override_dir is not None and (override_dir / filename).is_file():
+    if override_dir is not None:
         return override_dir / filename
-    return BRANDING_ASSETS_ROOT / filename
+    return workspace_root() / "Branding" / filename
 
 
 def header_logo_path() -> Path:
-    """The attached folder's `Branding/header-logo.png` when present, else
-    the plugin's bundled default -- nothing needs to exist in the workspace
-    for reports to render."""
+    """The attached folder's `Branding/header-logo.png`. The plugin ships no
+    bundled fallback -- every writer that embeds this checks `.exists()`
+    first, so a workspace with no `Branding/` folder (or one missing this
+    file) simply renders without a header logo."""
     return _logo_path("header-logo.png")
 
 
 def project_logo_path() -> Path:
-    """See `header_logo_path` -- same override-first, bundled-fallback
-    resolution, for the project logo asset."""
+    """See `header_logo_path` -- same resolution, no bundled fallback, for
+    the project logo asset."""
     return _logo_path("project-logo.png")

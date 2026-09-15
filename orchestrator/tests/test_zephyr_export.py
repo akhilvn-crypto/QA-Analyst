@@ -80,6 +80,17 @@ def _document():
     )
 
 
+def _write_project_logo(workspace_root: Path) -> None:
+    """The plugin ships no bundled logo -- tests that exercise logo
+    embedding must supply their own via the attached folder's `Branding/`,
+    same as a real workspace would."""
+    from PIL import Image
+
+    branding_dir = workspace_root / "Branding"
+    branding_dir.mkdir(parents=True, exist_ok=True)
+    Image.new("RGB", (10, 10), color="white").save(branding_dir / "project-logo.png")
+
+
 def _document_control(**overrides):
     base = dict(
         title="Test Cases for LinkGrid",
@@ -335,13 +346,31 @@ def test_version_control_sheet_shows_every_document_control_field(tmp_path):
         assert label in values
 
 
-def test_version_control_sheet_embeds_the_project_logo(tmp_path):
+def test_version_control_sheet_embeds_the_project_logo(tmp_path, monkeypatch):
+    import orchestrator.utils.paths as paths_mod
+
+    monkeypatch.setattr(paths_mod, "WORKSPACE_ROOT", tmp_path)
+    _write_project_logo(tmp_path)
+
     path = tmp_path / "out" / "cases.xlsx"
     write_xlsx([], _document_control(), _release_history(), path)
 
     workbook = load_workbook(path)
     sheet = workbook["Document Version Control"]
     assert len(sheet._images) == 1
+
+
+def test_version_control_sheet_has_no_logo_when_branding_folder_is_absent(tmp_path, monkeypatch):
+    import orchestrator.utils.paths as paths_mod
+
+    monkeypatch.setattr(paths_mod, "WORKSPACE_ROOT", tmp_path)
+
+    path = tmp_path / "out" / "cases.xlsx"
+    write_xlsx([], _document_control(), _release_history(), path)
+
+    workbook = load_workbook(path)
+    sheet = workbook["Document Version Control"]
+    assert len(sheet._images) == 0
 
 
 def test_build_release_history_rows_matches_columns():
@@ -713,6 +742,7 @@ def test_export_round_trip_preserves_execution_status_on_regeneration(tmp_path, 
     import orchestrator.utils.paths as paths_mod
 
     monkeypatch.setattr(paths_mod, "WORKSPACE_ROOT", tmp_path)
+    _write_project_logo(tmp_path)
 
     input_path = _write_test_cases_json(tmp_path, "doc", ["TC-001", "TC-002"])
 

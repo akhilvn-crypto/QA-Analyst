@@ -9,8 +9,7 @@ question a settings file used to:
     <attached folder>/
       Requirements/      requirement .md notes -- the sole requirement input (required)
       Knowledge Base/    general domain-background notes (optional)
-      Branding/          header-logo.png / project-logo.png overrides (optional)
-      Project Info.md    operator identity frontmatter (optional)
+      Branding/          header-logo.png / project-logo.png (optional; no bundled default)
       output/            generated deliverables (self-creates)
 
 Subfolder names are matched case-insensitively and ignoring spaces, `-`
@@ -44,9 +43,6 @@ from pathlib import Path
 REQUIREMENTS_DIRNAME = "Requirements"
 KNOWLEDGE_BASE_DIRNAME = "Knowledge Base"
 BRANDING_DIRNAME = "Branding"
-PROJECT_INFO_FILENAME = "Project Info.md"
-
-OPERATOR_KEYS = ("name", "designation", "projectName", "projectId")
 
 
 def workspace_root() -> Path:
@@ -103,8 +99,10 @@ def knowledge_base_path(folder_override: str | None = None) -> Path | None:
 
 
 def branding_path() -> Path | None:
-    """The optional `Branding/` subfolder overriding the plugin's bundled
-    logos (see `paths.header_logo_path`/`project_logo_path`)."""
+    """The optional `Branding/` subfolder supplying `header-logo.png` /
+    `project-logo.png` (see `paths.header_logo_path`/`project_logo_path`).
+    The plugin ships no default logos of its own -- `None` here just means
+    reports render without one."""
     return _find_child(BRANDING_DIRNAME, want_dir=True)
 
 
@@ -114,40 +112,3 @@ def document_name() -> str:
     be identical for every project."""
     return workspace_root().resolve().name
 
-
-def _parse_frontmatter(text: str) -> dict:
-    lines = text.lstrip("﻿").splitlines()
-    if not lines or lines[0].strip() != "---":
-        return {}
-    values = {}
-    for line in lines[1:]:
-        if line.strip() == "---":
-            break
-        key, sep, value = line.partition(":")
-        if not sep:
-            continue
-        value = value.strip()
-        if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
-            value = value[1:-1]
-        values[key.strip()] = value
-    return values
-
-
-def operator_info() -> dict:
-    """The human identity execution-log entries attribute a controlled
-    revision to -- `name`, `designation`, `projectName`, `projectId`, read
-    from `Project Info.md`'s YAML frontmatter at the attached folder's root.
-    Each is the empty string when the note or the key is missing; callers
-    render a blank field as this project's standard TBD placeholder
-    themselves -- never fabricated, never defaulted to an OS/git username."""
-    info = dict.fromkeys(OPERATOR_KEYS, "")
-    note = _find_child(PROJECT_INFO_FILENAME, want_dir=False)
-    if note is None:
-        return info
-    try:
-        frontmatter = _parse_frontmatter(note.read_text(encoding="utf-8"))
-    except (OSError, UnicodeDecodeError):
-        return info
-    for key in OPERATOR_KEYS:
-        info[key] = str(frontmatter.get(key, "") or "")
-    return info

@@ -26,11 +26,6 @@ rendered text differs writer to writer:
   its own; pass a function that always returns `None`, which snapshots
   under the literal "unversioned" label like any other report whose
   version can't be determined.
-
-`snapshot_previous_md`, given the outgoing report's replacement text via
-`new_content`, also records who/when this revision happened to a sibling
-`execution-log/` folder (`orchestrator.utils.execution_log`) -- a distinct
-audit trail from this module's own `history/` file copies.
 """
 
 import re
@@ -40,7 +35,6 @@ import time
 from collections.abc import Callable
 from pathlib import Path
 
-from orchestrator.utils import execution_log
 from orchestrator.utils.md_table import split_row
 
 VersionExtractor = Callable[[str], "str | None"]
@@ -86,34 +80,21 @@ def release_history_version_extractor(columns: list[str]) -> VersionExtractor:
     return extract
 
 
-def snapshot_previous_md(md_path: Path, extract_version: VersionExtractor, new_content: str | None = None) -> None:
+def snapshot_previous_md(md_path: Path, extract_version: VersionExtractor) -> None:
     """Archive the `.md` this run is about to overwrite into a sibling
     `history/` folder before it's gone, named with the version it carried
     (via `extract_version`) and the timestamp it was actually written at --
     not "now", since "now" is essentially the new version's own timestamp.
-    No-op when there's nothing on disk yet (first run for this doc) -- except
-    for the execution-log entry below, which still records the first
-    generation as `action: "created"`.
+    No-op when there's nothing on disk yet (first run for this doc).
 
     Snapshotting must never cost a run its actual deliverable -- same
     contract `snapshot-output.sh` gives the JSON's own history/ copies (it
     always exits 0/allow even on a failed copy). A permissions issue, full
     disk, or a file locked by another process (an editor, a sync client)
-    here only loses the archival copy, never the new report.
-
-    `new_content`, when given, is the report text this same call site is
-    about to `write_text` right after -- already built, at every one of this
-    project's four `.md` writer call sites, before the archive-then-overwrite
-    happens. Passing it lets this one call also record the who/when
-    execution-log entry (`orchestrator.utils.execution_log`) for both the
-    "created" and "updated" case, using the same `extract_version` to read
-    the *new* version out of it. Omitted, no execution-log entry is written
-    -- a caller that only wants the `history/` archive can still get it."""
+    here only loses the archival copy, never the new report."""
     history_dir = md_path.parent / "history"
-    existed = md_path.is_file()
-    old_version: str | None = None
 
-    if existed:
+    if md_path.is_file():
         try:
             content = md_path.read_text(encoding="utf-8")
             old_version = extract_version(content) or "unversioned"
@@ -131,12 +112,3 @@ def snapshot_previous_md(md_path: Path, extract_version: VersionExtractor, new_c
             shutil.copy2(md_path, snapshot)
         except OSError as exc:
             print(f"WARNING: failed to archive previous {md_path.name} to history/: {exc}", file=sys.stderr)
-
-    if new_content is not None:
-        new_version = extract_version(new_content) or "unversioned"
-        execution_log.record(
-            md_path.parent,
-            md_path.name,
-            from_version=old_version,
-            to_version=new_version,
-        )
