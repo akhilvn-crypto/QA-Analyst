@@ -34,10 +34,6 @@ orchestrator/          Python backend — parsing, generation, validation,
                        orchestrator/utils/paths.py); never copied into a
                        user's workspace
 scripts/run.sh         wrapper: `python -m orchestrator.<module>`
-assets/
-  branding/             Emvigo bundled default branding (2 logos) — an
-                        attached folder can override either with its own
-                        Branding/ copy (see paths.py)
 ```
 
 Agents invoke Python as `bash ./.qa-orchestrator <folder.module> [args]`
@@ -57,8 +53,7 @@ found by convention in `orchestrator/utils/workspace.py`:
 |---|---|---|
 | `Requirements/` | **The requirement input source** — and a reasoning-time fallback (see below) | Nothing to analyze; `/analyse-requirement` says so and stops |
 | `Knowledge Base/` | General domain-background notes, auto-cataloged each run by the generator agents themselves (`/build-kb-catalog` also available standalone) | Opt-in — agents reason from requirement text alone |
-| `Branding/` | `header-logo.png` / `project-logo.png` overrides | Bundled `assets/branding/` logos are used |
-| `Project Info.md` | YAML frontmatter `name`, `designation`, `projectName`, `projectId` — the identity every execution-log entry attributes a revision to | Fields render as `"TBD – Client/Project Input Required"` |
+| `Branding/` | `header-logo.png` / `project-logo.png` | No bundled default — reports render without a logo |
 | `output/` | All generated deliverables, plus the staged `<doc-name>-source.md` | Self-creates on first write |
 
 Subfolder/file names match ignoring case, spaces, `-` and `_`
@@ -202,13 +197,9 @@ never fabricated.
 
 Every regeneration is a controlled revision: `snapshot-output.sh` archives
 the prior version to `history/` before overwrite; `validate-output.sh` runs
-`orchestrator.validation.validate` after, blocking on errors; `execution-log.sh`
-then records who made the revision (from `Project Info.md`) and when (IST)
-to a sibling `execution-log/` folder, via `orchestrator.utils.execution_log`
-— one JSON array (source of truth, append-only) plus a generated `.md`
-table, per deliverable folder. All three hooks match on `Write|Edit` only —
-which is why agents must write JSON with those tools, never via a
-Bash-invoked script.
+`orchestrator.validation.validate` after, blocking on errors. Both hooks
+match on `Write|Edit` only — which is why agents must write JSON with those
+tools, never via a Bash-invoked script.
 
 **The JSON is always the source of truth; the Markdown report is always
 generated alongside it; every other format is opt-in.** Agents author the
@@ -229,10 +220,7 @@ bullet, or the last Document Release History row for the Test Plan, whose
 Version Control section has no standalone version bullet; the
 Clarification Sheet carries no version at all, so its snapshots are always
 "unversioned") — and the timestamp it was written at. A failed archive only
-loses that history copy, never the run's actual deliverable. The same call
-also records the matching `execution-log/` entry for the `.md` (see above),
-using that same recovered old version as `from` and the outgoing file's own
-new version as `to`.
+loses that history copy, never the run's actual deliverable.
 
 And a plain re-run of `/analyse-requirement` when nothing in `Requirements/`
 changed since the last run is refused outright

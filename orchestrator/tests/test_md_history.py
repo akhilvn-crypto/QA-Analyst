@@ -2,27 +2,11 @@
 report writer in `generation/` uses (see md_history.py's own docstring for
 which writers and why)."""
 
-import json
-
-import pytest
-
-from orchestrator.utils import workspace
 from orchestrator.utils.md_history import (
     bullet_version_extractor,
     release_history_version_extractor,
     snapshot_previous_md,
 )
-
-
-@pytest.fixture
-def isolated_config(monkeypatch, tmp_path_factory):
-    """Points operator_info() (read by execution_log.record, which
-    snapshot_previous_md now calls whenever `new_content` is given) at a
-    scratch workspace folder, so these tests never read the real cwd's
-    `Project Info.md`."""
-    root = tmp_path_factory.mktemp("workspace")
-    monkeypatch.setattr(workspace, "workspace_root", lambda: root)
-    return root
 
 
 def test_bullet_version_extractor_reads_the_labeled_bullet():
@@ -129,34 +113,3 @@ def test_snapshot_previous_md_survives_a_failed_copy(tmp_path, monkeypatch, caps
     captured = capsys.readouterr()
     assert "WARNING" in captured.err
     assert "disk full" in captured.err
-
-
-def test_snapshot_previous_md_logs_created_on_first_generation(tmp_path, isolated_config):
-    md_path = tmp_path / "Doc-report.md"
-
-    snapshot_previous_md(md_path, lambda content: "1.0", new_content="content v1")
-
-    entries = json.loads((tmp_path / "execution-log" / "execution-log.json").read_text(encoding="utf-8"))
-    assert len(entries) == 1
-    assert entries[0]["action"] == "created"
-    assert entries[0]["version"] == {"from": None, "to": "1.0"}
-
-
-def test_snapshot_previous_md_logs_updated_with_old_and_new_version(tmp_path, isolated_config):
-    md_path = tmp_path / "Doc-report.md"
-    md_path.write_text("content v1", encoding="utf-8")
-
-    snapshot_previous_md(md_path, lambda content: "1.0" if "v1" in content else "1.1", new_content="content v2")
-
-    entries = json.loads((tmp_path / "execution-log" / "execution-log.json").read_text(encoding="utf-8"))
-    assert entries[-1]["action"] == "updated"
-    assert entries[-1]["version"] == {"from": "1.0", "to": "1.1"}
-
-
-def test_snapshot_previous_md_skips_execution_log_when_new_content_omitted(tmp_path, isolated_config):
-    md_path = tmp_path / "Doc-report.md"
-    md_path.write_text("content", encoding="utf-8")
-
-    snapshot_previous_md(md_path, lambda content: "1.0")
-
-    assert not (tmp_path / "execution-log").exists()

@@ -69,8 +69,9 @@ breaks everywhere.
 A4 portrait. `header-logo.png` right-aligned in
 the first-page header (cover page only — interior pages carry no header),
 `project-logo.png` centered on the cover body (each from the attached
-folder's `Branding/` if present, else the bundled `assets/branding/`), "Test
-Plan for `<title>`", Project ID line, left-aligned prepared-by/date block.
+folder's `Branding/` — the plugin ships no bundled fallback, so either is
+simply omitted when absent), "Test Plan for `<title>`", Project ID line,
+left-aligned prepared-by/date block.
 
 Non-cover page footers carry "Confidential – Internal / Client Use Only"
 (left-aligned, small italic gray) above `Version <version>    Page <n> of

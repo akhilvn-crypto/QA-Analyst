@@ -280,7 +280,7 @@ def write_sheet(doc_name: str, *, docx: bool = False, force: bool = False) -> No
 
     content = build_sheet_md(rows, doc_name=doc_name, document_control=analysis.document_control)
     md_path.parent.mkdir(parents=True, exist_ok=True)
-    snapshot_previous_md(md_path, lambda _content: None, new_content=content)
+    snapshot_previous_md(md_path, lambda _content: None)
     md_path.write_text(content, encoding="utf-8")
     print(str(md_path))
 

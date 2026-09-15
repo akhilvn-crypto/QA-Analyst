@@ -40,11 +40,10 @@ opens on its cover page):
    `document_control` field (`DOCUMENT_CONTROL_FIELDS`: Document Title,
    Project ID, Document ID, Description, Version, Prepared By, Prepared
    Date, Approved Date, Master Template ID), with the project logo
-   (`Branding/project-logo.png` in the attached folder, else the bundled
-   `assets/branding/project-logo.png`, via
-   `orchestrator.utils.paths.project_logo_path()`) embedded above it — the
-   same asset the Test Plan cover page uses. A missing logo file is a no-op,
-   not a failure.
+   (`Branding/project-logo.png` in the attached folder, via
+   `orchestrator.utils.paths.project_logo_path()` — the plugin ships no
+   bundled fallback) embedded above it — the same asset the Test Plan cover
+   page uses. A missing logo file is a no-op, not a failure.
 2. **"Document Release History"** — one row per `release_history` entry:
    `Version | Date | Author | Reviewed By | Reviewed On | Approved By |
    Approved On | Reasons` — identical columns to the Test Plan's own table.

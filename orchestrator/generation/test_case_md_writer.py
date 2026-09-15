@@ -323,7 +323,7 @@ def write_report(doc_name: str, overrides: dict[str, dict[str, str]] | None = No
     content = build_report(document, requirement_texts, tracking)
 
     md_path.parent.mkdir(parents=True, exist_ok=True)
-    snapshot_previous_md(md_path, _extract_version, new_content=content)
+    snapshot_previous_md(md_path, _extract_version)
     md_path.write_text(content, encoding="utf-8")
     print(str(md_path))
     return matched
