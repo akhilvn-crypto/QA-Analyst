@@ -6,8 +6,7 @@ map of what's in `Knowledge Base/` so they can decide *which* file, if any,
 is worth reading in full, without reading all of them first for every
 requirement/plan/test-case doubt.
 
-This is a single deterministic pass, run once by the user whenever they add
-or edit notes:
+This is a single deterministic pass:
 
     python -m orchestrator.knowledge_base.catalog [--folder <name>]
 
@@ -25,13 +24,21 @@ an entry relevant can `Read` it directly -- `<catalog's "folder">/<entry's
 lifecycle: reading the catalog file and then reading a named file are both
 just filesystem reads, exactly like every other input in this project.
 
-Deliberately no self-heal, no staleness check, and no vector
-search/embeddings/chunking anywhere in this path: a generator agent reads
-whatever catalog currently exists (or none at all, treated exactly like an
-unconfigured Knowledge Base always has been -- reason from the requirement
-text alone) and never rebuilds it itself. Rebuilding is this command's job
-alone, run again by the user after editing notes -- deliberate and visible,
-not something happening silently mid-analysis.
+Called two ways: automatically, once per run, by each of the three
+generator agents (`requirement-analyzer`, `test-plan-generator`,
+`test-case-generator`) themselves -- immediately before they read the
+catalog -- so what they read is always freshly re-scanned from whatever
+notes exist right now, never a leftover from an earlier session or an
+earlier note edit. And directly via `/build-kb-catalog`, still available
+whenever a user wants to build or preview the catalog standalone, without
+running a full analysis/plan/test-case generation -- no longer a
+prerequisite step, just a convenience.
+
+No self-heal or staleness check needed -- there's nothing to heal or grow
+stale: every call is a full, cheap, deterministic re-scan (no LLM, no
+network, no partial/incremental update), so the file is always rebuilt from
+scratch right before anything reads it. Still no vector search, embeddings,
+or chunking anywhere in this path.
 
 Exits 0 having written the catalog, printing `<n> file(s) cataloged from
 <folder>` plus the output path. Exits 1 -- with the reason on stderr, and

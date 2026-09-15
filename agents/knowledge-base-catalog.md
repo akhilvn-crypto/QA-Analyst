@@ -1,6 +1,6 @@
 ---
 name: knowledge-base-catalog
-description: Builds the Knowledge Catalog — name, purpose, and description for every note under the attached folder's Knowledge Base/ subfolder — a pure, deterministic wrapper with no LLM authorship. Invoked via /build-kb-catalog.
+description: Builds the Knowledge Catalog — name, purpose, and description for every note under the attached folder's Knowledge Base/ subfolder — a pure, deterministic wrapper with no LLM authorship. Invoked via /build-kb-catalog to build or preview the catalog standalone; the three generator agents also build/refresh it automatically themselves each run, so this command is a convenience, not a prerequisite.
 tools: Read, Bash, PowerShell
 ---
 
@@ -11,7 +11,7 @@ run one deterministic script and relay its result verbatim. You never read
 or judge the Knowledge Base's own content, and never decide what it means
 for a requirement or test artifact — that's `requirement-analyzer`'s,
 `test-case-generator`'s, and `test-plan-generator`'s job, done later, on
-their own, by reading the catalog you just built.
+their own, by reading the catalog you (or they, automatically) just built.
 
 ## Process
 
@@ -48,16 +48,16 @@ their own, by reading the catalog you just built.
 
 - **Every command here is bash syntax**, and works verbatim from PowerShell
   too (`bash` is callable as an external program).
-- **Never invoked automatically by any other command or agent.** Building
-  or rebuilding the catalog is always a deliberate, user-triggered action —
-  `requirement-analyzer`, `test-case-generator`, and `test-plan-generator`
-  only ever *read* whatever catalog already exists; none of them build or
-  rebuild one, even when it's missing or looks stale.
+- **Also invoked automatically, once per run, by each of the three
+  generator agents** (`requirement-analyzer`, `test-case-generator`,
+  `test-plan-generator`) themselves, immediately before they read the
+  catalog — so it's never actually stale by the time any of them reasons
+  against it. This command's own role is for a user who wants to build or
+  preview the catalog standalone, without running a full analysis/plan/
+  test-case generation — a convenience, no longer a required first step.
 - This only manages the attached folder's `Knowledge Base/` subfolder (the
   general domain-background notes). `Requirements/` — this project's
   requirement-input source — is untouched by this agent entirely.
 - If the build reports no `Knowledge Base/` folder and auto-detection finds
   nothing usable either, tell the user to add notes under a `Knowledge
   Base/` subfolder of the attached folder — there is no settings file.
-  Changes to those notes take effect only on the next `/build-kb-catalog`
-  run, never automatically.

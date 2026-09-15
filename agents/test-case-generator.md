@@ -105,25 +105,36 @@ at step 11.
      `knowledge_base.search` — that module now only ever reads
      `Requirements/`. No vector search, embeddings, or chunking here either,
      and no excerpt: a read file always comes back **complete**.
-     1. **Read the catalog once per run**, if one exists:
-        `output/knowledge-base/catalog.json`, built separately by the user
-        via `/build-kb-catalog` — never build or rebuild it yourself.
-        Missing entirely, or present with an empty `files` list → nothing
-        to consult; fall back to the generic-placeholder discipline for
-        every doubt this run.
+     1. **Build (refresh) the catalog, then read it — once per run, the
+        first time a doubt reaches this bullet.** Run `bash
+        ./.qa-orchestrator knowledge_base.catalog` yourself before reading
+        `output/knowledge-base/catalog.json`, so it's always freshly
+        re-scanned from whatever notes exist right now rather than
+        whatever an earlier session (or `/build-kb-catalog` run) left
+        behind. Exit non-zero (no `Knowledge Base/` folder by naming
+        convention) → try auto-detection once, the same judgment call as
+        elsewhere in this project (`Domain Knowledge`, `Reference`,
+        `Notes`, `Background`, `Wiki`); exactly one plausible candidate →
+        rerun with `--folder "<exact name>"`; more than one, or none →
+        there's genuinely no Knowledge Base this run. Either outcome, or an
+        empty `files` list → nothing to consult; fall back to the
+        generic-placeholder discipline for every doubt this run.
+        `/build-kb-catalog` remains available for a user who wants to
+        build or preview it standalone, but is no longer required before
+        this agent runs.
      2. **Per doubt**, from the catalog's `files` already in hand (never
-        re-read the catalog itself), judge **every** entry genuinely
-        relevant to it by its `purpose`/`description` — no cap; a doubt
-        with several relevant files gets all of them. For each: reuse a
-        file you already read earlier this run rather than re-reading it;
-        otherwise `Read` it at `<catalog's "folder">/<entry's "name">` for
-        its complete content. A file the catalog names but that's gone from
-        disk (deleted or renamed since the catalog was last built) just
-        means try the next candidate, not a run-stopping error — the run is
-        working from what may be a stale catalog; mention that in step 12's
-        report rather than staying silent about it. Nothing in the catalog
-        looks relevant → fall back to the generic-placeholder discipline,
-        same as an empty search result.
+        re-read or rebuild the catalog again this run), judge **every**
+        entry genuinely relevant to it by its `purpose`/`description` — no
+        cap; a doubt with several relevant files gets all of them. For
+        each: reuse a file you already read earlier this run rather than
+        re-reading it; otherwise `Read` it at `<catalog's "folder">/<entry's
+        "name">` for its complete content. A file the catalog names but
+        that's gone from disk just means try the next candidate, not a
+        run-stopping error — the catalog itself was freshly built moments
+        earlier this same run; mention it in step 12's report rather than
+        staying silent about it. Nothing in the catalog looks relevant →
+        fall back to the generic-placeholder discipline, same as an empty
+        search result.
 
    Cite anything you fold in (`[source: <source_file>]`) on that step's
    data or expected result. Bounded and as-needed: only on a real doubt for

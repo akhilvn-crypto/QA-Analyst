@@ -73,10 +73,13 @@ projectId: LG-001
 
 Then:
 
-1. `/analyse-requirement` — analyzes everything in `Requirements/`.
+1. `/analyse-requirement` — analyzes everything in `Requirements/`. If you
+   also added a `Knowledge Base/` folder, this (and every other generator
+   command below) catalogs it automatically each run — no separate step
+   needed, and edits to those notes are always picked up fresh.
 2. `/generate-test-plan` and `/generate-test-cases` as needed.
-3. Optional: `/build-kb-catalog` once (and again any time `Knowledge Base/`
-   notes change) to let the agents draw on it.
+3. Optional: `/build-kb-catalog` to build or preview the Knowledge Catalog
+   on its own, without running a full analysis/plan/test-case generation.
 
 Review the `.md` reports directly under `output/` — they already live in
 your vault.
