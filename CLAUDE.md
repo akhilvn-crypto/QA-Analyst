@@ -56,7 +56,7 @@ found by convention in `orchestrator/utils/workspace.py`:
 | Path in the attached folder | Role | Missing means |
 |---|---|---|
 | `Requirements/` | **The requirement input source** — and a reasoning-time fallback (see below) | Nothing to analyze; `/analyse-requirement` says so and stops |
-| `Knowledge Base/` | General domain-background notes, cataloged by `/build-kb-catalog` | Opt-in — agents reason from requirement text alone |
+| `Knowledge Base/` | General domain-background notes, auto-cataloged each run by the generator agents themselves (`/build-kb-catalog` also available standalone) | Opt-in — agents reason from requirement text alone |
 | `Branding/` | `header-logo.png` / `project-logo.png` overrides | Bundled `assets/branding/` logos are used |
 | `Project Info.md` | YAML frontmatter `name`, `designation`, `projectName`, `projectId` — the identity every execution-log entry attributes a revision to | Fields render as `"TBD – Client/Project Input Required"` |
 | `output/` | All generated deliverables, plus the staged `<doc-name>-source.md` | Self-creates on first write |
@@ -89,43 +89,53 @@ about.
 ## Knowledge base catalog
 
 `Knowledge Base/` (only — `Requirements/` is untouched, see below) is
-served by a single deterministic command, **`/build-kb-catalog`**, run
-directly by the user whenever they add, edit, or remove notes there — a
-pure, no-lifecycle replacement for what used to be a persistent background
-service (start/load/status/stop, an in-memory hot-swap, its own HTTP
-client). That was a lot of machinery for what agents actually need: a small
-map of what's there. `/build-kb-catalog` (the `knowledge-base-catalog`
-agent, a deterministic wrapper) runs
-`bash ./.qa-orchestrator knowledge_base.catalog`, which scans every `.md`
+served by a single deterministic build, `bash ./.qa-orchestrator
+knowledge_base.catalog` — a pure, no-lifecycle replacement for what used to
+be a persistent background service (start/load/status/stop, an in-memory
+hot-swap, its own HTTP client). That was a lot of machinery for what agents
+actually need: a small map of what's there. The build scans every `.md`
 file under `Knowledge Base/` and writes one JSON file,
 `output/knowledge-base/catalog.json`: that folder's own resolved path, plus
 one `{name, purpose, description}` entry per note — never a file's content,
 which is what keeps the catalog small enough to scan whole. No vector
 search, embeddings, or chunking anywhere in this path.
 
-All three generator agents **read this file directly with their own `Read`
-tool**, each deliberately, never automatically: `requirement-analyzer` runs
-one upfront domain investigation (investigation questions generated once
-from the requirement, no fixed count; every entry the catalog's
+All three generator agents **build/refresh this file themselves,
+automatically, once per run**, immediately before they read it, then read
+it directly with their own `Read` tool: `requirement-analyzer` runs one
+upfront domain investigation (investigation questions generated once from
+the requirement, no fixed count; every entry the catalog's
 `purpose`/`description` judge genuinely relevant to a question is read, no
 per-question cap) so relevant knowledge is never left out for the sake of a
 round number; `test-case-generator`/`test-plan-generator` consult it ad
 hoc, one genuine doubt at a time, while drafting (every genuinely relevant
-file read per doubt, never speculatively). All three judge relevance from
-the catalog's `purpose`/`description`, then `Read` a relevant entry's
+file read per doubt, never speculatively) — each builds/refreshes the
+catalog once, the first time a doubt reaches that step, then reuses the
+same in-hand `files` list for every later doubt that run rather than
+rebuilding or re-reading it again. All three judge relevance from the
+catalog's `purpose`/`description`, then `Read` a relevant entry's
 **complete** file at `<catalog's "folder">/<entry's "name">` — reusing one
 already read this run rather than re-reading it.
 
-None of the three ever builds or rebuilds the catalog, and none of them
-self-heals a missing or stale one — that's a deliberate simplification, not
-an oversight: a missing catalog (never built, or the `Knowledge Base/`
-folder itself absent) is an ordinary fallback to requirement text alone,
-exactly like an unconfigured knowledge base always has been; a *stale* one
-(built before a note was added or edited) is quietly used as-is, on the
-same "reason from what you have" principle every other TBD/gap discipline
-in this project already follows — the user reruns `/build-kb-catalog`
-themselves when they know their notes changed. There is no notion of the
-catalog auto-refreshing mid-analysis.
+Because every run starts by rebuilding the catalog from whatever notes
+exist on disk *right now*, there is no notion of a stale or missing-but-
+buildable catalog to fall back from — only a `Knowledge Base/` folder
+that's genuinely absent (by naming convention and by the same
+folder-auto-detection judgment call described below) is an ordinary
+fallback to requirement text alone, exactly like an unconfigured knowledge
+base always has been. This reverses an earlier, deliberate design of this
+project (each generator only ever reading whatever catalog happened to
+already exist, never building one itself) in favor of the Cowork workflow
+this plugin is meant for: a QA person attaches a vault folder and invokes
+an agent directly, without a separate "build the catalog first" step to
+remember or forget.
+
+**`/build-kb-catalog`** (the `knowledge-base-catalog` agent, a deterministic
+wrapper around the same build) still exists, but only as a convenience for
+a user who wants to build or preview the catalog standalone — e.g. to
+sanity-check a note's `purpose`/`description` — without running a full
+analysis, plan, or test-case generation. It is no longer a prerequisite
+before running any of the three generator agents.
 
 `Requirements/` is untouched by any of this. All three agents still reach
 it, when a doubt or a requirement's own text isn't enough, through

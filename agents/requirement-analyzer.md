@@ -156,15 +156,35 @@ run. Don't re-run either check here; reuse that `<doc-name>`.
    against `Knowledge Base/` here even if it's familiar** — that module now
    only ever reads `Requirements/`.
 
-   1. **Read the catalog**, if one exists:
-      `output/knowledge-base/catalog.json`, built separately by the user via
-      `/build-kb-catalog` — this agent never builds or rebuilds it, and
-      never invokes that command itself. Missing entirely, or present with
-      an empty `files` list → nothing to investigate; note that in
-      `meta.extraction_manifest` (suggesting `/build-kb-catalog` if the
-      `Knowledge Base/` folder plainly exists but no catalog does) and
-      proceed on requirement text alone, exactly like an unconfigured
-      Knowledge Base always has.
+   1. **Build (refresh) the catalog, then read it.** Run `bash
+      ./.qa-orchestrator knowledge_base.catalog` yourself, once, before
+      investigating — the attached folder's `Knowledge Base/` may have been
+      edited (or never cataloged at all) since anything last built it, and
+      this step keeps that invisible: the catalog you read is always
+      freshly re-scanned from whatever notes exist right now, never a
+      leftover from an earlier session.
+      - **Exit 0** → read the catalog it just wrote:
+        `output/knowledge-base/catalog.json`. An empty `files` list means
+        the folder exists but holds no readable `.md` notes → nothing to
+        investigate; proceed on requirement text alone.
+      - **Exit non-zero** (no `Knowledge Base/` folder found by naming
+        convention) → before accepting that, try auto-detection once, the
+        same way Mode selection's step 1 does for `Requirements/`: list the
+        attached folder's top-level entries and use judgment to spot a
+        folder that plausibly holds domain-background notes under a
+        different name (`Domain Knowledge`, `Reference`, `Notes`,
+        `Background`, `Wiki`). Exactly one plausible candidate → rerun with
+        `--folder "<exact name>"` and use that result; more than one, or
+        none → there is genuinely no Knowledge Base this run.
+      Either way, note the outcome in `meta.extraction_manifest` (including
+      which `--folder`, if auto-detection was needed — every later step
+      this run that reasons against the catalog needs the same `--folder`
+      repeated, nothing here is persisted) and, when there's genuinely
+      nothing to investigate, proceed on requirement text alone, exactly
+      like an unconfigured Knowledge Base always has. `/build-kb-catalog`
+      still exists for a user who wants to build or preview the catalog on
+      its own; running it first is no longer required before this agent
+      runs — this step makes that redundant, not wrong.
    2. **Generate investigation questions once**, from the combined
       requirement document and this step's domain inference — questions
       like "does similar functionality already exist?", "which roles or
@@ -182,11 +202,11 @@ run. Don't re-run either check here; reuse that `<doc-name>`.
       file, this being the one place in this document where a knowledge
       source is read whole rather than section-scored) and analyze it
       against that question. A file the catalog names but that's gone from
-      disk (a note deleted or renamed since the catalog was last built)
-      just means try the next candidate for that question, not a
-      run-stopping error — note it in `meta.extraction_manifest` so a stale
-      catalog doesn't stay silently invisible run after run, and suggest
-      re-running `/build-kb-catalog`.
+      disk (deleted or renamed in the instant between this run's own
+      catalog build and this read — the catalog itself was always freshly
+      built moments earlier in this same run, never stale) just means try
+      the next candidate for that question, not a run-stopping error — note
+      it in `meta.extraction_manifest` so it isn't silently invisible.
    4. **No second round of question generation.** A file read for one
       question may answer or inform it, but never spawns a *new* question —
       this is what keeps the investigation a single bounded pass (one round
@@ -490,13 +510,14 @@ not re-analyze the whole document.
   it's the only path that reaches it at all.
 - Follow the output-structure skill for all file naming, field/section
   conventions, and sort order.
-- **Step 3's catalog read only ever touches `Knowledge Base/`** — never
-  `Requirements/`, which stays exactly as before (step 5's
+- **Step 3's catalog build/read only ever touches `Knowledge Base/`** —
+  never `Requirements/`, which stays exactly as before (step 5's
   `knowledge_base.search`, and `parsing.reading_vault_fetch`'s
-  requirement-input role). **Never build or rebuild the catalog yourself**
-  — a missing or stale one is an ordinary fallback to reason from
-  requirement text alone, not something to fix mid-run; rebuilding it is
-  always a deliberate, separate `/build-kb-catalog` invocation by the user.
+  requirement-input role). **Always build/refresh the catalog yourself, once
+  per run, at the start of step 3** — only a `Knowledge Base/` folder that's
+  genuinely absent (by convention and auto-detection both) is a fallback to
+  requirement text alone; there is no longer a notion of a missing-but-
+  buildable or stale catalog file to fall back from.
 - **Never generate Gap IDs, Gap Types, Risk Scores, Business Impact, or
   Complexity** — retired. The only requirement-level output fields are
   Requirement ID, Title, Category, Requirement, Gap, Client Question,
