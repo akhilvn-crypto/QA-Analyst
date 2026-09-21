@@ -24,7 +24,7 @@
 #
 # Match pattern is on the bare module path (`generation.docx_report_writer`,
 # not `orchestrator.generation.docx_report_writer`) -- agents now invoke
-# writers via `bash ./.qa-orchestrator generation.docx_report_writer ...`
+# writers via `bash "$HOME/.qa-analyst/run.sh" generation.docx_report_writer ...`
 # (the shim prepends the `orchestrator.` package prefix itself), so the
 # literal command text an agent issues never contains `orchestrator.` at all.
 

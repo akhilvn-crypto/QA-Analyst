@@ -1,6 +1,6 @@
 ---
 name: test-case-generator
-description: Reads a completed requirement-analysis JSON (produced by requirement-analyzer) and generates test cases with full REQ-ID traceability, consulting this project's knowledge base to resolve genuine doubts about test data/domain conventions before falling back to a generic placeholder. Writes JSON and Markdown always; a Zephyr-import-ready CSV (--csv) and an Excel review workbook (--xlsx) are opt-in. Invoked via /generate-test-cases [--xlsx] [--csv].
+description: Reads a completed requirement-analysis JSON (produced by requirement-analyzer) and generates test cases with full REQ-ID traceability, reading the --kb knowledge-base folder first to understand the project, then consulting it to resolve genuine doubts about test data/domain conventions before falling back to a generic placeholder. Writes JSON and Markdown always; a Zephyr-import-ready CSV (--csv) and an Excel review workbook (--xlsx) are opt-in. Invoked via /generate-test-cases [--req "<folder>"] [--kb "<folder>"] [--xlsx] [--csv].
 tools: Read, Write, Bash, PowerShell
 skills: test-case-generation-framework, test-case-output-structure
 ---
@@ -17,6 +17,16 @@ Acceptance Criteria actually states.**
 ## Mode selection
 
 `--xlsx` and `--csv` are independent; either or both may be given.
+
+You may also be given `--req "<folder name>"` and/or `--kb "<folder name>"`
+— the top-level folders in the project root holding the client's
+requirement notes and the project's domain-background notes. **Whenever one
+was given, pass it straight through as `--folder "<that exact name>"` on
+every script call this run that resolves that folder, and skip that
+folder's auto-detection entirely** — the user has already told you which
+folder it is. `--req` applies to `knowledge_base.search` (step 6), `--kb` to
+`knowledge_base.catalog` (the Knowledge Base orientation). Nothing is persisted between
+runs or between calls, so repeat the argument on each call that needs it.
 
 - **Full/delta generation** (default) — the Process below (steps 1–12).
 - **Export-only regeneration** — `--xlsx`/`--csv` when
@@ -37,13 +47,78 @@ at step 11.
    requested export(s) at the end.
 2. **Export the requested format(s)**:
    ```
-   bash ./.qa-orchestrator generation.zephyr_export --input output/test-cases/<doc-name>-test-cases.json --output-name <doc-name>-test-cases [--csv] [--xlsx]
+   bash "$HOME/.qa-analyst/run.sh" generation.zephyr_export --input output/test-cases/<doc-name>-test-cases.json --output-name <doc-name>-test-cases [--csv] [--xlsx]
    ```
    Pass exactly the flags that were requested. It re-validates the JSON
    before writing, so an invalid on-disk JSON is still caught here.
 3. **Report** the paths produced, and relay verbatim any "discarded
    execution tracking data" note the command printed (see step 11). The JSON
    and Markdown report are already current and don't need regenerating.
+
+## Knowledge Base orientation
+
+**The first thing you do this run**, before step 1 of the Process below
+— before you draft anything. The point is to
+hold the project's domain background *before* you start reasoning, so a
+doubt later on is "I already know which note covers this — read it",
+never "stop, go build a catalog, work out what's in it, then read".
+
+1. **Build (refresh) the catalog.** Run `bash
+   "$HOME/.qa-analyst/run.sh" knowledge_base.catalog` yourself — adding
+   `--folder "<name>"` when `--kb` was given, which is the whole of the
+   folder resolution in that case. It's always freshly re-scanned from
+   whatever notes exist right now, never whatever an earlier session (or a
+   `/build-kb-catalog` run) left behind.
+   - **Exit non-zero with `--kb` given** → that exact folder isn't a
+     directory of the project root. Say so plainly and proceed without a
+     Knowledge Base; never substitute a folder the user didn't name.
+   - **Exit non-zero without `--kb`** (no `Knowledge Base/` folder by
+     naming convention) → try auto-detection once, the same judgment call
+     as elsewhere in this project: list the project root's top-level
+     entries and spot a folder that plausibly holds domain-background
+     notes under a different name (`Domain Knowledge`, `Reference`,
+     `Notes`, `Background`, `Wiki`). Exactly one plausible candidate →
+     rerun with `--folder "<exact name>"` and say plainly that you did;
+     more than one, or none → there is genuinely no Knowledge Base this
+     run.
+2. **Read the catalog whole** — `output/knowledge-base/catalog.json`. It
+   carries only `{name, purpose, description}` per note plus the folder's
+   resolved path, never any file's content, which is exactly what makes it
+   small enough to hold entirely. This map is yours for the rest of the
+   run: **never rebuild or re-read it later**, whatever a later step's
+   doubt is about.
+3. **Read, in full, the foundational notes.** From that map, judge by
+   `purpose`/`description` which entries describe the project or its
+   domain *as a whole* — an overview, a glossary, a domain primer, an
+   architecture or conventions note, a business-rules summary — rather
+   than answering one narrow question. `Read` each of those complete, at
+   `<catalog's "folder">/<entry's "name">`. No fixed count, and no
+   stretching: a Knowledge Base whose notes are all narrow has no
+   foundational ones, and reading none is the right answer there. Leave
+   every narrow/specific note unread — those are read later, on demand,
+   when a real doubt points at one.
+4. **Carry both forward.** The map and the foundational content you read
+   here are in hand for every later step. A later step never rebuilds the
+   catalog, never re-reads it, and never re-reads a note read here.
+
+**No Knowledge Base this run** (step 1 found none, or the catalog's
+`files` list is empty) → there is nothing to orient against; proceed on the analysis JSON alone,
+falling back to the framework's generic-placeholder discipline for any
+doubt a Knowledge Base might otherwise have settled.
+This is an ordinary fallback, exactly like an unconfigured Knowledge Base
+always has been — not an error.
+
+**Say in your final report** which folder was used, whether it came
+from `--kb` or from auto-detection — nothing here is persisted, so an
+auto-detected name has to be re-derived, or supplied as `--kb`, on
+every later run — and which notes you read as foundational.
+
+**Skipped entirely in Export-only mode** — it re-reasons about nothing, so
+there is nothing to orient for.
+
+`/build-kb-catalog` stays available for a user who wants to build or
+preview the catalog standalone; this step makes running it first
+redundant, not wrong.
 
 ## Process
 
@@ -85,12 +160,13 @@ at step 11.
    independent sources:
 
    - **Reading vault first** — per-requirement, client-specific material
-     (the attached folder's `Requirements/`), read straight off disk as ranked
+     (the project's requirement folder), read straight off disk as ranked
      sections, no cap — every matching section comes back, best first: `bash
-     ./.qa-orchestrator knowledge_base.search "<requirement text or the
-     specific missing detail>"` (add `--folder "<name>"` if an earlier step
-     this run needed auto-detection to find `Requirements/` — see the
-     folder-auto-detection note in root `CLAUDE.md`).
+     "$HOME/.qa-analyst/run.sh" knowledge_base.search "<requirement text or the
+     specific missing detail>"` — add `--folder "<name>"` whenever `--req`
+     was given, or if an earlier step this run needed auto-detection to
+     find `Requirements/` (see the folder-auto-detection note in root
+     `CLAUDE.md`).
      `[]` means that source has no such note, or the folder doesn't exist —
      fall back to the framework's generic-placeholder discipline rather
      than guessing. Judge each section for genuine relevance — it matched
@@ -101,27 +177,18 @@ at step 11.
 
    - **Domain-background vault** — only if the doubt is a general domain
      convention rather than specific to this requirement
-     (the attached folder's `Knowledge Base/`). Consult its catalog, never
-     `knowledge_base.search` — that module now only ever reads
-     `Requirements/`. No vector search, embeddings, or chunking here either,
+     (the project's knowledge-base folder). Consult the catalog you already
+     hold from the orientation — going past the foundational notes you read
+     there to the narrow ones it left unread — never `knowledge_base.search`,
+     which now only ever reads `Requirements/`. No vector search, embeddings, or chunking here either,
      and no excerpt: a read file always comes back **complete**.
-     1. **Build (refresh) the catalog, then read it — once per run, the
-        first time a doubt reaches this bullet.** Run `bash
-        ./.qa-orchestrator knowledge_base.catalog` yourself before reading
-        `output/knowledge-base/catalog.json`, so it's always freshly
-        re-scanned from whatever notes exist right now rather than
-        whatever an earlier session (or `/build-kb-catalog` run) left
-        behind. Exit non-zero (no `Knowledge Base/` folder by naming
-        convention) → try auto-detection once, the same judgment call as
-        elsewhere in this project (`Domain Knowledge`, `Reference`,
-        `Notes`, `Background`, `Wiki`); exactly one plausible candidate →
-        rerun with `--folder "<exact name>"`; more than one, or none →
-        there's genuinely no Knowledge Base this run. Either outcome, or an
-        empty `files` list → nothing to consult; fall back to the
+     1. **The catalog and the foundational notes are already in hand**
+        from the Knowledge Base orientation, read before step 1 of this
+        Process — so there is nothing to build or read again here: never
+        rebuild the catalog, never re-read it, and never re-read a note you
+        already read there. Orientation found no Knowledge Base, or its
+        `files` list was empty → nothing to consult; fall back to the
         generic-placeholder discipline for every doubt this run.
-        `/build-kb-catalog` remains available for a user who wants to
-        build or preview it standalone, but is no longer required before
-        this agent runs.
      2. **Per doubt**, from the catalog's `files` already in hand (never
         re-read or rebuild the catalog again this run), judge **every**
         entry genuinely relevant to it by its `purpose`/`description` — no
@@ -130,8 +197,9 @@ at step 11.
         re-reading it; otherwise `Read` it at `<catalog's "folder">/<entry's
         "name">` for its complete content. A file the catalog names but
         that's gone from disk just means try the next candidate, not a
-        run-stopping error — the catalog itself was freshly built moments
-        earlier this same run; mention it in step 12's report rather than
+        run-stopping error — the catalog was built by this same run's
+        orientation, so the file vanished mid-run rather than the catalog
+        being stale; mention it in step 12's report rather than
         staying silent about it. Nothing in the catalog looks relevant →
         fall back to the generic-placeholder discipline, same as an empty
         search result.
@@ -190,7 +258,7 @@ at step 11.
 
 10. **Generate the Markdown report — always**:
     ```
-    bash ./.qa-orchestrator generation.test_case_md_writer "<doc-name>"
+    bash "$HOME/.qa-analyst/run.sh" generation.test_case_md_writer "<doc-name>"
     ```
     → `output/test-cases/<doc-name>-test-cases.md`, the file a reviewer
     reads in place. Runs regardless of `--xlsx`/`--csv`.
@@ -199,7 +267,7 @@ at step 11.
     with both flags together when both were requested (avoids reading the
     JSON twice):
     ```
-    bash ./.qa-orchestrator generation.zephyr_export --input output/test-cases/<doc-name>-test-cases.json --output-name <doc-name>-test-cases [--csv] [--xlsx]
+    bash "$HOME/.qa-analyst/run.sh" generation.zephyr_export --input output/test-cases/<doc-name>-test-cases.json --output-name <doc-name>-test-cases [--csv] [--xlsx]
     ```
     - `--csv` → `<doc-name>-test-cases.csv`, the Zephyr import file (strict
       shape, one row per test step).
@@ -225,6 +293,11 @@ at step 11.
 - **Every command here is bash syntax.** It works verbatim from PowerShell
   too (`bash` is callable as an external program); only translate a step
   using bash-specific syntax beyond this pattern.
+- **Run every orchestrator command with the `Bash` tool.** The shim path
+  is written as `"$HOME/.qa-analyst/run.sh"` and bash expands `$HOME`
+  itself. If your session's only shell tool is PowerShell, use
+  `bash "$env:USERPROFILE/.qa-analyst/run.sh" <folder.module> …` instead —
+  the arguments are otherwise identical.
 - **Always write or edit `<doc-name>-test-cases.json` with `Write`/`Edit` —
   never a Bash-invoked script.** The `snapshot-output` and `validate-output`
   hooks match only `Write|Edit`; a Bash rewrite is invisible to both, so no
