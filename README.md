@@ -58,17 +58,16 @@ Code, put the two input folders in its root, and name them on the command:
 Then:
 
 1. `/analyse-requirement --req "Requirements" --kb "Knowledge Base"` —
-   understands the `--kb` notes *first* (it catalogs that folder itself and
-   reads the foundational notes in full), then analyzes every `.md` under
-   `--req` with that background already in hand. Every generator command
-   below opens the same way — no separate step — so edits to those notes
-   are always picked up fresh.
+   reads **every** `.md` note under `--kb` in full *first*, whatever it
+   covers (domain knowledge, architecture, API docs, compliance,
+   conventions), then analyzes every `.md` under `--req` with all of that
+   background already in hand. Every generator command below opens the
+   same way — no separate step, no index to build — so edits to those
+   notes are always picked up fresh.
 2. `/generate-test-plan` and `/generate-test-cases`, passing the same
    `--req`/`--kb` names. Nothing is remembered between commands (there is
-   no settings file), so pass them each time.
-3. Optional: `/build-kb-catalog --kb "<folder>"` to build or preview the
-   Knowledge Catalog on its own, without running a full
-   analysis/plan/test-case generation.
+   no settings file), so pass them each time — and because each command is
+   its own run, each reads the `--kb` notes itself.
 
 The flags are optional: with neither, the plugin looks for folders named
 `Requirements/` and `Knowledge Base/` (matched ignoring case, spaces, `-`

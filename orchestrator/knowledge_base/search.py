@@ -1,11 +1,10 @@
 """Direct-from-markdown search over the attached folder's `Requirements/`
 subfolder -- the per-requirement reasoning fallback, with no vector store
 in the middle. (The general domain-background source, `Knowledge Base/`,
-is a different, unrelated mechanism -- see `knowledge_base.catalog`: a
-deterministic catalog an agent scans, then reads a chosen file's complete
-content directly with `Read`. There is nothing to search there; ranked,
-excerpted sections are specifically this module's own answer to
-`Requirements/` being read for a single, often-vague doubt, not a whole
+is a different, unrelated mechanism -- an agent reads every note under it
+in full, with `Read`, at the top of each run. There is nothing to search
+there; ranked, excerpted sections are specifically this module's own answer
+to `Requirements/` being read for a single, often-vague doubt, not a whole
 file worth reading in full.)
 
 There used to be a Chroma DB here: notes were chunked, embedded, and

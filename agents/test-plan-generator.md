@@ -1,6 +1,6 @@
 ---
 name: test-plan-generator
-description: Generates a client-ready Test Plan document from this project's analyzed requirements — scope, strategy, resources, schedule, and closure criteria, laid out on Emvigo's Test Plan template. Reads the --kb knowledge-base folder first to understand the project, then reasons against it to resolve genuine doubts before falling back to TBD. Writes JSON and Markdown always; Word optional via --docx. Invoked via /generate-test-plan [--req "<folder>"] [--kb "<folder>"] [--docx] [extra instructions].
+description: Generates a client-ready Test Plan document from this project's analyzed requirements — scope, strategy, resources, schedule, and closure criteria, laid out on Emvigo's Test Plan template. Reads every note in the --kb knowledge-base folder, in full, first to understand the project, then reasons against what it read to resolve genuine doubts before falling back to TBD. Writes JSON and Markdown always; Word optional via --docx. Invoked via /generate-test-plan [--req "<folder>"] [--kb "<folder>"] [--docx] [extra instructions].
 tools: Read, Write, Bash, PowerShell
 skills: test-plan-framework, requirement-analysis-framework, test-plan-output-structure
 ---
@@ -65,71 +65,74 @@ additionally do the docx half of step 15.
 3. **Report** the resulting path and stop. The Markdown report is already
    current and doesn't need regenerating.
 
-## Knowledge Base orientation
+## Knowledge Base ingestion
 
-**The first thing you do this run**, before step 1 of the Process below
-— before you draft anything. The point is to
-hold the project's domain background *before* you start reasoning, so a
-doubt later on is "I already know which note covers this — read it",
-never "stop, go build a catalog, work out what's in it, then read".
+**The first thing you do this run**, before step 1 of the Process below — before you
+draft any part of the plan. Every note under the
+knowledge-base folder is read, **in full**, before you reason about
+anything. There is no catalog, no index, no triage and no up-front
+relevance judgment: the whole knowledge base goes into your context once,
+at the top of the run, and every later step reasons from what you are
+already holding rather than going back to disk. That is the point — a
+doubt later on is answered by knowledge you already have, never by
+"stop, work out which note might cover this, then go read it".
 
-1. **Build (refresh) the catalog.** Run `bash
-   "$HOME/.qa-analyst/run.sh" knowledge_base.catalog` yourself — adding
-   `--folder "<name>"` when `--kb` was given, which is the whole of the
-   folder resolution in that case. It's always freshly re-scanned from
-   whatever notes exist right now, never whatever an earlier session (or a
-   `/build-kb-catalog` run) left behind.
-   - **Exit non-zero with `--kb` given** → that exact folder isn't a
-     directory of the project root. Say so plainly and proceed without a
-     Knowledge Base; never substitute a folder the user didn't name.
-   - **Exit non-zero without `--kb`** (no `Knowledge Base/` folder by
-     naming convention) → try auto-detection once, the same judgment call
-     as elsewhere in this project: list the project root's top-level
-     entries and spot a folder that plausibly holds domain-background
-     notes under a different name (`Domain Knowledge`, `Reference`,
-     `Notes`, `Background`, `Wiki`). Exactly one plausible candidate →
-     rerun with `--folder "<exact name>"` and say plainly that you did;
-     more than one, or none → there is genuinely no Knowledge Base this
-     run.
-2. **Read the catalog whole** — `output/knowledge-base/catalog.json`. It
-   carries only `{name, purpose, description}` per note plus the folder's
-   resolved path, never any file's content, which is exactly what makes it
-   small enough to hold entirely. This map is yours for the rest of the
-   run: **never rebuild or re-read it later**, whatever a later step's
-   doubt is about.
-3. **Read, in full, the foundational notes.** From that map, judge by
-   `purpose`/`description` which entries describe the project or its
-   domain *as a whole* — an overview, a glossary, a domain primer, an
-   architecture or conventions note, a business-rules summary — rather
-   than answering one narrow question. `Read` each of those complete, at
-   `<catalog's "folder">/<entry's "name">`. No fixed count, and no
-   stretching: a Knowledge Base whose notes are all narrow has no
-   foundational ones, and reading none is the right answer there. Leave
-   every narrow/specific note unread — those are read later, on demand,
-   when a real doubt points at one.
-4. **Carry both forward.** The map and the foundational content you read
-   here are in hand for every later step. A later step never rebuilds the
-   catalog, never re-reads it, and never re-reads a note read here.
+1. **Resolve the knowledge-base folder.**
+   - **`--kb "<name>"` given** → that exact top-level folder of the
+     project root is the Knowledge Base, used verbatim: no convention
+     match, no auto-detection. It not existing as a directory is reported
+     as such — say so plainly and proceed without a Knowledge Base; never
+     substitute a folder the user didn't name.
+   - **No `--kb`** → list the project root's top-level entries and match
+     `Knowledge Base` by convention: exact name first, then ignoring
+     case, spaces, `-` and `_`. Nothing matched at all → make the
+     auto-detection judgment call once, the same one as elsewhere in this
+     project: spot a folder that plausibly holds domain-background notes
+     under a different name (`Domain Knowledge`, `Reference`, `Notes`,
+     `Background`, `Wiki`). Exactly one plausible candidate → use it and
+     say plainly that you did; more than one, or none → there is
+     genuinely no Knowledge Base this run.
+2. **List every `.md` file under it**, recursively, skipping dot-folders
+   (`.obsidian/`, `.history/` and the like) — `Bash ls`/`find`, or `Glob`.
+3. **Read every one of them, complete.** All of them, whatever they cover
+   — domain knowledge, architecture, API documentation, compliance rules,
+   data dictionaries, conventions, and the narrowest single-question note
+   alike. No skimming, no excerpting, no skipping a note that looks
+   irrelevant from its name: whether a note matters is a judgment you can
+   only make properly *after* reading it, and not having to make it up
+   front is exactly what this step buys. Issue the `Read` calls in
+   batches — several per message — rather than one at a time. Order them
+   so any note whose *file name* marks it as the project's domain
+   background as a whole (`domain-knowledge.md`, `domain.md`,
+   `project-overview.md`, `overview.md`, `about.md` and the like, matched
+   ignoring case, spaces, `-` and `_`) is read first, with the rest
+   following in listing order — the broad picture then sits in place as
+   the specifics land against it. A file that fails to read (vanished
+   mid-run, unreadable) is mentioned and skipped, never a run-stopping
+   error.
+4. **That is your knowledge base for the whole run.** Everything below
+   reasons from what you now hold — nothing goes back to this folder
+   again. Never re-read a file you read here. Never search, index,
+   catalog, embed or chunk this folder, and never run
+   `knowledge_base.search` against it: that module only ever reads the
+   requirement folder, and there is in any case nothing here left to
+   look up.
 
-**No Knowledge Base this run** (step 1 found none, or the catalog's
-`files` list is empty) → there is nothing to orient against; proceed on the analysis JSON, the
-combined source and the user's own instructions alone, falling back to the
-ordinary TBD discipline for any doubt a Knowledge Base might otherwise
-have settled.
-This is an ordinary fallback, exactly like an unconfigured Knowledge Base
-always has been — not an error.
+**No Knowledge Base this run** (step 1 resolved no folder, or the folder
+holds no `.md` files) → there is nothing to ingest; proceed on the analysis
+JSON, the combined source and the user's own instructions alone, falling
+back to the ordinary TBD discipline for any doubt a Knowledge Base might
+otherwise have settled. This is an ordinary fallback, exactly like an
+unconfigured Knowledge Base always has been — not an error.
 
 **Say in your final report** which folder was used, whether it came
 from `--kb` or from auto-detection — nothing here is persisted, so an
 auto-detected name has to be re-derived, or supplied as `--kb`, on
-every later run — and which notes you read as foundational.
+every later run — and the list of note files you read, including any that
+failed to read.
 
 **Skipped entirely in Docx-only mode** — it re-reasons about nothing, so
-there is nothing to orient for.
-
-`/build-kb-catalog` stays available for a user who wants to build or
-preview the catalog standalone; this step makes running it first
-redundant, not wrong.
+there is nothing to ingest for.
 
 ## Process
 
@@ -144,9 +147,10 @@ was given, pass it straight through as `--folder "<that exact name>"` on
 every script call this run that resolves that folder, and skip that
 folder's auto-detection entirely** — the user has already told you which
 folder it is. `--req` applies to `parsing.reading_vault_fetch` (step 1, and
-Docx-only mode's step 1) and `knowledge_base.search` (step 3); `--kb` to
-`knowledge_base.catalog` (the Knowledge Base orientation). Nothing is persisted between runs or
-between calls, so repeat the argument on each call that needs it.
+Docx-only mode's step 1) and `knowledge_base.search` (step 3); `--kb`
+names the folder the Knowledge Base ingestion reads directly, with no
+script involved. Nothing is persisted between runs or between calls, so
+repeat the argument on each call that needs it.
 
 1. **Gather inputs** per the `test-plan-framework` skill's Inputs section:
    read `output/requirement-analysis/<doc-name>-analysis.json` as primary
@@ -173,32 +177,20 @@ between calls, so repeat the argument on each call that needs it.
    before falling back to a TBD marker:
 
    - **Domain-background vault** (the project's knowledge-base folder).
-     Consult the catalog you already hold from the orientation — going
-     past the foundational notes you read there to the narrow ones it
-     left unread — never `knowledge_base.search`, which now
-     only ever reads `Requirements/`. No vector search, embeddings, or
-     chunking here either, and no excerpt: a read file always comes back
-     **complete**.
-     1. **The catalog and the foundational notes are already in hand**
-        from the Knowledge Base orientation, read before step 1 of this
-        Process — so there is nothing to build or read again here: never
-        rebuild the catalog, never re-read it, and never re-read a note you
-        already read there. Orientation found no Knowledge Base, or its
-        `files` list was empty → nothing to consult; fall back to the
+     You are already holding every note under it, read in full at the top
+     of the run, so this is pure recall: answer the doubt from what you
+     read. Never re-read a note, never search, catalog or index that
+     folder, and never run `knowledge_base.search` against it — that
+     module only ever reads `Requirements/`.
+     1. **Nothing ingested** (no Knowledge Base this run, or the folder
+        held no `.md` files) → nothing to draw on; fall back to the
         ordinary TBD discipline for every doubt this run.
-     2. **Per doubt**, from the catalog's `files` already in hand (never
-        re-read or rebuild the catalog again this run), judge **every**
-        entry genuinely relevant to it by its `purpose`/`description` — no
-        cap; a doubt with several relevant files gets all of them. For
-        each: reuse a file you already read earlier this run rather than
-        re-reading it; otherwise `Read` it at `<catalog's "folder">/<entry's
-        "name">` for its complete content. A file the catalog names but
-        that's gone from disk just means try the next candidate, not a
-        run-stopping error — the catalog was built by this same run's
-        orientation, so this means the file vanished mid-run, not that the
-        catalog is stale. Nothing in the catalog
-        looks relevant → fall back to the ordinary TBD discipline, same as
-        an empty search result.
+     2. **Per doubt**, answer from the ingested notes wherever they
+        genuinely settle it — a test-environment convention, a client
+        tooling or methodology preference, an NFR or compliance
+        expectation the notes state outright. Nothing you read bears on it
+        → fall back to the ordinary TBD discipline, exactly as an empty
+        search result would.
    - **Reading vault**: `bash "$HOME/.qa-analyst/run.sh" knowledge_base.search
      "<specific doubt terms>"` (from
      the project's requirement folder, searched here at plan level, read
@@ -211,7 +203,7 @@ between calls, so repeat the argument on each call that needs it.
      with `[...]` where content was dropped: never quote across one, and
      `Read` the note at the result's `path` if you need what's between.
 
-   Judge each result — a catalog-listed file or a searched section — for
+   Judge each result — an ingested note or a searched section — for
    genuine relevance, not just that it matched your words. Cite anything
    you fold into the plan (`[source: <source_file>]`). Bounded and
    as-needed: only on a real doubt, never speculatively per section, never

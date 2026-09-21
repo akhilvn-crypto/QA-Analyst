@@ -22,8 +22,8 @@ features) lives outside this folder.
 ```
 .claude-plugin/
   plugin.json  plugin manifest (name/version/description/author)
-agents/       5 subagent definitions (*.md)
-commands/     6 slash commands (*.md) — one per agent
+agents/       4 subagent definitions (*.md)
+commands/     5 slash commands (*.md) — one per agent
 skills/       framework + output-structure skills (*/SKILL.md); each
               *-output-structure skill also has a reference/ folder that
               is NOT auto-loaded
@@ -64,7 +64,7 @@ of that project root — and fall back to being found by convention in
 | Path in the project root | Role | Missing means |
 |---|---|---|
 | `Requirements/` (or `--req "<folder>"`) | **The requirement input source** — and a reasoning-time fallback (see below) | Nothing to analyze; `/analyse-requirement` says so and stops |
-| `Knowledge Base/` (or `--kb "<folder>"`) | General domain-background notes the agents read to understand the project, auto-cataloged each run by the generator agents themselves (`/build-kb-catalog` also available standalone) | Opt-in — agents reason from requirement text alone |
+| `Knowledge Base/` (or `--kb "<folder>"`) | General domain-background notes the generator agents read **in full, every note, every run** to understand the project | Opt-in — agents reason from requirement text alone |
 | `Branding/` | `header-logo.png` / `project-logo.png` | No bundled default — reports render without a logo |
 | `output/` | All generated deliverables, plus the staged `<doc-name>-source.md` | Self-creates on first write |
 
@@ -96,70 +96,63 @@ is combined by `parsing.reading_vault_fetch` into the document
 the agents query only when a requirement's own text isn't enough to reason
 about.
 
-## Knowledge base catalog
+## Knowledge Base ingestion
 
-`Knowledge Base/` (only — `Requirements/` is untouched, see below) is
-served by a single deterministic build, `bash "$HOME/.qa-analyst/run.sh"
-knowledge_base.catalog` — a pure, no-lifecycle replacement for what used to
-be a persistent background service (start/load/status/stop, an in-memory
-hot-swap, its own HTTP client). That was a lot of machinery for what agents
-actually need: a small map of what's there. The build scans every `.md`
-file under `Knowledge Base/` and writes one JSON file,
-`output/knowledge-base/catalog.json`: that folder's own resolved path, plus
-one `{name, purpose, description}` entry per note — never a file's content,
-which is what keeps the catalog small enough to scan whole. No vector
-search, embeddings, or chunking anywhere in this path.
+`Knowledge Base/` (only — `Requirements/` is untouched, see below) is read
+by the agents themselves, directly and in full. There is **no catalog, no
+index, no search, no embeddings and no Python module** in this path: the
+three generator agents each open their run by reading **every** `.md` file
+under that folder, complete, before they touch the requirement at all.
 
-All three generator agents open every run with a **Knowledge Base
-orientation**, before they touch the requirement at all: each
-builds/refreshes the catalog itself, reads it whole (it is `{name, purpose,
-description}` per note, never file content — that is what keeps it small
-enough to hold entirely), and then reads *in full* the entries whose
-`purpose`/`description` mark them as **foundational** — an overview, a
-glossary, a domain primer, an architecture/conventions note, a
-business-rules summary: the notes that describe the project or domain as a
-whole rather than answering one narrow question. No fixed count, and none
-is a valid answer for a Knowledge Base whose notes are all narrow.
-Narrow/specific notes stay unread until something actually points at one.
-The point is that the agent holds the project's domain background *before*
-it starts reasoning, so a doubt later on is "I already know which note
-covers this — read it" rather than "stop, build a catalog, work out what's
-in it, then read".
+1. **Resolve the knowledge-base folder** — `--kb` verbatim, else the
+   naming-convention match, else the one auto-detection judgment call.
+2. **List every `.md` under it**, recursively, skipping dot-folders
+   (`.obsidian/`, `.history/`).
+3. **Read them all, in full** — domain knowledge, architecture, API
+   documentation, compliance rules, data dictionaries, conventions and the
+   narrowest single-question note alike. No triage, no skimming, no
+   excerpting, no deciding up front that a note looks irrelevant. Notes
+   whose *file name* marks them as the project's domain background as a
+   whole (`domain-knowledge.md`, `domain.md`, `project-overview.md`,
+   `overview.md`, `about.md`, matched ignoring case/spaces/`-`/`_`) are
+   read first so the broad picture is in place as the specifics land
+   against it; the rest follow in listing order. Reads are issued in
+   batches, not one at a time.
+4. **That's the knowledge base for the run.** Every later step reasons
+   from what's already in context — never a re-read, never a lookup,
+   never a search against that folder.
 
-Past the orientation, each agent goes further into the narrow notes its own
-way: `requirement-analyzer` runs one bounded domain investigation
-(investigation questions generated once from the requirement and the
-inferred domain, no fixed count; every entry the catalog judges genuinely
-relevant to a question is read, no per-question cap) so relevant knowledge
-is never left out for the sake of a round number;
-`test-case-generator`/`test-plan-generator` consult the map ad hoc, one
-genuine doubt at a time, while drafting (every genuinely relevant file read
-per doubt, never speculatively). In all three, the catalog is built and
-read exactly once per run — at the orientation — and every later step
-reuses that same in-hand `files` list rather than rebuilding or re-reading
-it, `Read`ing a relevant entry's **complete** file at `<catalog's
-"folder">/<entry's "name">` and reusing one already read this run (the
-foundational ones included) rather than re-reading it.
+The point is that the agent holds the project's *entire* domain background
+before it starts reasoning, so a doubt later on is answered by knowledge
+it already has, rather than by stopping to work out which note might cover
+it and going to fetch that one. Past the ingestion, `requirement-analyzer`
+reasons the whole requirement against everything it read (no fixed rounds —
+an answer that raises a further question is followed up on the spot, since
+the material is all in context);
+`test-case-generator`/`test-plan-generator` resolve genuine doubts the same
+way, by recall, falling back to a generic placeholder or `TBD` only when
+nothing they read bears on the doubt.
 
-Because every run's orientation rebuilds the catalog from whatever notes
-exist on disk *right now*, there is no notion of a stale or missing-but-
-buildable catalog to fall back from — only a `Knowledge Base/` folder
-that's genuinely absent (by naming convention and by the same
-folder-auto-detection judgment call described below) is an ordinary
-fallback to requirement text alone, exactly like an unconfigured knowledge
-base always has been. This reverses an earlier, deliberate design of this
-project (each generator only ever reading whatever catalog happened to
-already exist, never building one itself) in favor of the Cowork workflow
-this plugin is meant for: a QA person attaches a vault folder and invokes
-an agent directly, without a separate "build the catalog first" step to
-remember or forget.
+This replaced a catalog-plus-questions design (a deterministic
+`knowledge_base.catalog` build writing `output/knowledge-base/catalog.json`
+— one `{name, purpose, description}` line per note — which agents scanned
+to pick which notes to read, plus a `/build-kb-catalog` command and a
+`knowledge-base-catalog` agent wrapping it). All of it is gone. Deciding
+whether a note is relevant from a one-line description is a judgment you
+can only make properly *after* reading the note, and the machinery to
+avoid reading was more complexity than the reading it saved.
 
-**`/build-kb-catalog`** (the `knowledge-base-catalog` agent, a deterministic
-wrapper around the same build) still exists, but only as a convenience for
-a user who wants to build or preview the catalog standalone — e.g. to
-sanity-check a note's `purpose`/`description` — without running a full
-analysis, plan, or test-case generation. It is no longer a prerequisite
-before running any of the three generator agents.
+**No cross-run cache.** Each of the three generator commands is its own
+agent invocation with its own fresh context, so each reads the whole
+Knowledge Base itself, every run. Nothing carries over from
+`/analyse-requirement` to `/generate-test-cases`. That is also what keeps
+every run current with whatever is on disk *right now*: there is no
+artifact that can fall behind the notes it describes.
+
+A `Knowledge Base/` folder that's genuinely absent (by naming convention
+and by the same folder-auto-detection judgment call described below), or
+one holding no `.md` files, is an ordinary fallback to requirement text
+alone, exactly like an unconfigured knowledge base always has been.
 
 `Requirements/` is untouched by any of this. All three agents still reach
 it, when a doubt or a requirement's own text isn't enough, through
@@ -168,9 +161,9 @@ it, when a doubt or a requirement's own text isn't enough, through
 for a search an agent only reaches for when it's genuinely unsure — better
 to hand back everything that matched (the agent already judges each result
 for relevance itself) than to guess how many are "enough" and hide the
-rest. (`knowledge_base.search` only ever reads `Requirements/` now — the
-general domain-background source above it used to also serve is the
-catalog's job instead.)
+rest. (`knowledge_base.search` only ever reads `Requirements/` — the
+general domain-background source it used to also serve is read whole by
+the agents instead.)
 
 ## Folder auto-detection
 
@@ -191,7 +184,8 @@ Knowledge`, `Reference`, `Notes`, `Wiki`, `Background` for the knowledge
 base). Exactly one plausible candidate → pass it straight through as
 `--folder "<exact name>"` to whichever script needed it
 (`parsing.reading_vault_fetch`, `parsing.vault_writeback`,
-`knowledge_base.search`, `knowledge_base.catalog` all accept it). More than
+`knowledge_base.search` all accept it; the knowledge-base folder itself
+is read by the agent directly, with no script in between). More than
 one plausible candidate, or none → ask the user rather than guessing.
 
 There is no settings file to remember that choice in, so it isn't
@@ -271,7 +265,6 @@ with nothing new to say — the existing `--docx`-when-current shortcut
 | `/generate-test-plan` | JSON + `.md` | `--docx` | `--req`, `--kb` |
 | `/generate-test-cases` | JSON + `.md` | `--csv` (Zephyr import), `--xlsx` (3-sheet workbook) | `--req`, `--kb` |
 | `/apply-clarifications` | `.md` + refreshed sheet | `--docx` | `--req` |
-| `/build-kb-catalog` | `catalog.json` | — | `--kb` |
 
 Every `--req "<folder>"`/`--kb "<folder>"` is an exact top-level folder
 name in the project root, used verbatim (see "Workspace model" above).

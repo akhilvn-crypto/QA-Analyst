@@ -2,9 +2,9 @@
 
 `parsing/` input→markdown · `generation/` writes deliverables (docx/xlsx/csv)
 · `knowledge_base/` direct markdown search over `Requirements/` only
-(`search.py`) plus the deterministic Knowledge Catalog build for the
-domain-background vault (`catalog.py` — see root `CLAUDE.md`'s "Knowledge
-base catalog"; no service, no lifecycle, one JSON file) ·
+(`search.py`) — the domain-background vault has no module at all: agents
+read every note under it themselves, in full (see root `CLAUDE.md`'s
+"Knowledge Base ingestion") ·
 `validation/` deterministic JSON checks ·
 `models/` data structures only · `utils/` generic helpers only · `templates/`
 static assets copied verbatim, never generated · `tests/` pytest, run via
