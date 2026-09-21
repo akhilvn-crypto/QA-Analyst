@@ -1,6 +1,6 @@
 ---
 name: test-plan-generator
-description: Generates a client-ready Test Plan document from this project's analyzed requirements — scope, strategy, resources, schedule, and closure criteria, laid out on Emvigo's Test Plan template. Reasons against this project's knowledge base to resolve genuine doubts before falling back to TBD. Writes JSON and Markdown always; Word optional via --docx. Invoked via /generate-test-plan [--docx] [extra instructions].
+description: Generates a client-ready Test Plan document from this project's analyzed requirements — scope, strategy, resources, schedule, and closure criteria, laid out on Emvigo's Test Plan template. Reads the --kb knowledge-base folder first to understand the project, then reasons against it to resolve genuine doubts before falling back to TBD. Writes JSON and Markdown always; Word optional via --docx. Invoked via /generate-test-plan [--req "<folder>"] [--kb "<folder>"] [--docx] [extra instructions].
 tools: Read, Write, Bash, PowerShell
 skills: test-plan-framework, requirement-analysis-framework, test-plan-output-structure
 ---
@@ -51,18 +51,85 @@ additionally do the docx half of step 15.
 1. **Confirm the shortcut applies.** `<doc-name>-test-plan.json` must exist.
    Compare its mtime against
    `output/requirement-analysis/<doc-name>-analysis.json` if present,
-   otherwise against `<doc-name>-source.md` (run `bash ./.qa-orchestrator
-   parsing.reading_vault_fetch` first if unsure the combined source is
-   current — it only rewrites when the vault's content changed, so it's
-   always safe; see root `CLAUDE.md`'s folder-auto-detection note if it
-   reports no `Requirements/` folder). If the test-plan JSON isn't at least as new, fall through
+   otherwise against `<doc-name>-source.md` (run `bash "$HOME/.qa-analyst/run.sh"
+   parsing.reading_vault_fetch` — with `--folder "<name>"` when `--req` was
+   given — first if unsure the combined source is
+   current; it only rewrites when the vault's content changed, so it's
+   always safe. See root `CLAUDE.md`'s folder-auto-detection note if it
+   reports no `Requirements/` folder and no `--req` was given). If the test-plan JSON isn't at least as new, fall through
    to the full/delta flow (starting at step 1) and remember the docx half of
    step 15 at the end.
-2. **Generate the Word report**: `bash ./.qa-orchestrator
+2. **Generate the Word report**: `bash "$HOME/.qa-analyst/run.sh"
    generation.test_plan_docx_writer "<doc-name>"`. It re-validates the JSON
    before writing, so an invalid on-disk JSON is still caught here.
 3. **Report** the resulting path and stop. The Markdown report is already
    current and doesn't need regenerating.
+
+## Knowledge Base orientation
+
+**The first thing you do this run**, before step 1 of the Process below
+— before you draft anything. The point is to
+hold the project's domain background *before* you start reasoning, so a
+doubt later on is "I already know which note covers this — read it",
+never "stop, go build a catalog, work out what's in it, then read".
+
+1. **Build (refresh) the catalog.** Run `bash
+   "$HOME/.qa-analyst/run.sh" knowledge_base.catalog` yourself — adding
+   `--folder "<name>"` when `--kb` was given, which is the whole of the
+   folder resolution in that case. It's always freshly re-scanned from
+   whatever notes exist right now, never whatever an earlier session (or a
+   `/build-kb-catalog` run) left behind.
+   - **Exit non-zero with `--kb` given** → that exact folder isn't a
+     directory of the project root. Say so plainly and proceed without a
+     Knowledge Base; never substitute a folder the user didn't name.
+   - **Exit non-zero without `--kb`** (no `Knowledge Base/` folder by
+     naming convention) → try auto-detection once, the same judgment call
+     as elsewhere in this project: list the project root's top-level
+     entries and spot a folder that plausibly holds domain-background
+     notes under a different name (`Domain Knowledge`, `Reference`,
+     `Notes`, `Background`, `Wiki`). Exactly one plausible candidate →
+     rerun with `--folder "<exact name>"` and say plainly that you did;
+     more than one, or none → there is genuinely no Knowledge Base this
+     run.
+2. **Read the catalog whole** — `output/knowledge-base/catalog.json`. It
+   carries only `{name, purpose, description}` per note plus the folder's
+   resolved path, never any file's content, which is exactly what makes it
+   small enough to hold entirely. This map is yours for the rest of the
+   run: **never rebuild or re-read it later**, whatever a later step's
+   doubt is about.
+3. **Read, in full, the foundational notes.** From that map, judge by
+   `purpose`/`description` which entries describe the project or its
+   domain *as a whole* — an overview, a glossary, a domain primer, an
+   architecture or conventions note, a business-rules summary — rather
+   than answering one narrow question. `Read` each of those complete, at
+   `<catalog's "folder">/<entry's "name">`. No fixed count, and no
+   stretching: a Knowledge Base whose notes are all narrow has no
+   foundational ones, and reading none is the right answer there. Leave
+   every narrow/specific note unread — those are read later, on demand,
+   when a real doubt points at one.
+4. **Carry both forward.** The map and the foundational content you read
+   here are in hand for every later step. A later step never rebuilds the
+   catalog, never re-reads it, and never re-reads a note read here.
+
+**No Knowledge Base this run** (step 1 found none, or the catalog's
+`files` list is empty) → there is nothing to orient against; proceed on the analysis JSON, the
+combined source and the user's own instructions alone, falling back to the
+ordinary TBD discipline for any doubt a Knowledge Base might otherwise
+have settled.
+This is an ordinary fallback, exactly like an unconfigured Knowledge Base
+always has been — not an error.
+
+**Say in your final report** which folder was used, whether it came
+from `--kb` or from auto-detection — nothing here is persisted, so an
+auto-detected name has to be re-derived, or supplied as `--kb`, on
+every later run — and which notes you read as foundational.
+
+**Skipped entirely in Docx-only mode** — it re-reasons about nothing, so
+there is nothing to orient for.
+
+`/build-kb-catalog` stays available for a user who wants to build or
+preview the catalog standalone; this step makes running it first
+redundant, not wrong.
 
 ## Process
 
@@ -70,10 +137,22 @@ You're invoked with an optional `--docx` flag plus any extra instructions
 supplying project facts (resource names, environment, schedule) no
 requirement document could state.
 
+You may also be given `--req "<folder name>"` and/or `--kb "<folder name>"`
+— the top-level folders in the project root holding the client's
+requirement notes and the project's domain-background notes. **Whenever one
+was given, pass it straight through as `--folder "<that exact name>"` on
+every script call this run that resolves that folder, and skip that
+folder's auto-detection entirely** — the user has already told you which
+folder it is. `--req` applies to `parsing.reading_vault_fetch` (step 1, and
+Docx-only mode's step 1) and `knowledge_base.search` (step 3); `--kb` to
+`knowledge_base.catalog` (the Knowledge Base orientation). Nothing is persisted between runs or
+between calls, so repeat the argument on each call that needs it.
+
 1. **Gather inputs** per the `test-plan-framework` skill's Inputs section:
    read `output/requirement-analysis/<doc-name>-analysis.json` as primary
    source if it exists; also read `<doc-name>-source.md` if present, running
-   `bash ./.qa-orchestrator parsing.reading_vault_fetch` yourself first if
+   `bash "$HOME/.qa-analyst/run.sh" parsing.reading_vault_fetch` (with
+   `--folder "<name>"` when `--req` was given) yourself first if
    it's missing or you're unsure it's current. Fold in the extra
    instructions.
 
@@ -93,27 +172,20 @@ requirement document could state.
    NFR/compliance testing expectation typical for the domain). Consult
    before falling back to a TBD marker:
 
-   - **Domain-background vault** (the attached folder's `Knowledge Base/`).
-     Consult its catalog, never `knowledge_base.search` — that module now
+   - **Domain-background vault** (the project's knowledge-base folder).
+     Consult the catalog you already hold from the orientation — going
+     past the foundational notes you read there to the narrow ones it
+     left unread — never `knowledge_base.search`, which now
      only ever reads `Requirements/`. No vector search, embeddings, or
      chunking here either, and no excerpt: a read file always comes back
      **complete**.
-     1. **Build (refresh) the catalog, then read it — once per run, the
-        first time a doubt reaches this bullet.** Run `bash
-        ./.qa-orchestrator knowledge_base.catalog` yourself before reading
-        `output/knowledge-base/catalog.json`, so it's always freshly
-        re-scanned from whatever notes exist right now rather than
-        whatever an earlier session (or `/build-kb-catalog` run) left
-        behind. Exit non-zero (no `Knowledge Base/` folder by naming
-        convention) → try auto-detection once, the same judgment call as
-        elsewhere in this project (`Domain Knowledge`, `Reference`,
-        `Notes`, `Background`, `Wiki`); exactly one plausible candidate →
-        rerun with `--folder "<exact name>"`; more than one, or none →
-        there's genuinely no Knowledge Base this run. Either outcome, or an
-        empty `files` list → nothing to consult; fall back to the ordinary
-        TBD discipline for every doubt this run. `/build-kb-catalog`
-        remains available for a user who wants to build or preview it
-        standalone, but is no longer required before this agent runs.
+     1. **The catalog and the foundational notes are already in hand**
+        from the Knowledge Base orientation, read before step 1 of this
+        Process — so there is nothing to build or read again here: never
+        rebuild the catalog, never re-read it, and never re-read a note you
+        already read there. Orientation found no Knowledge Base, or its
+        `files` list was empty → nothing to consult; fall back to the
+        ordinary TBD discipline for every doubt this run.
      2. **Per doubt**, from the catalog's `files` already in hand (never
         re-read or rebuild the catalog again this run), judge **every**
         entry genuinely relevant to it by its `purpose`/`description` — no
@@ -122,17 +194,18 @@ requirement document could state.
         re-reading it; otherwise `Read` it at `<catalog's "folder">/<entry's
         "name">` for its complete content. A file the catalog names but
         that's gone from disk just means try the next candidate, not a
-        run-stopping error — the catalog itself was freshly built moments
-        earlier this same run, so this means the file vanished in that
-        instant, not that the catalog is stale. Nothing in the catalog
+        run-stopping error — the catalog was built by this same run's
+        orientation, so this means the file vanished mid-run, not that the
+        catalog is stale. Nothing in the catalog
         looks relevant → fall back to the ordinary TBD discipline, same as
         an empty search result.
-   - **Reading vault**: `bash ./.qa-orchestrator knowledge_base.search
+   - **Reading vault**: `bash "$HOME/.qa-analyst/run.sh" knowledge_base.search
      "<specific doubt terms>"` (from
-     the attached folder's `Requirements/`, searched here at plan level, read
+     the project's requirement folder, searched here at plan level, read
      straight off disk as ranked sections, no cap — every matching section
-     comes back, best first; add `--folder "<name>"` if an earlier step this
-     run needed auto-detection to find it). `[]` means that source has no
+     comes back, best first; add `--folder "<name>"` whenever `--req` was
+     given, or if an earlier step this run needed auto-detection to find
+     it). `[]` means that source has no
      such note, or the folder doesn't exist — fall back to the ordinary TBD
      discipline. A result flagged `truncated` is a match-centred excerpt
      with `[...]` where content was dropped: never quote across one, and
@@ -225,13 +298,13 @@ requirement document could state.
     errors before moving on; the md and docx writers run the same validation
     and will refuse an invalid file.
 
-14. **Generate the Markdown report** — always: `bash ./.qa-orchestrator
+14. **Generate the Markdown report** — always: `bash "$HOME/.qa-analyst/run.sh"
     generation.test_plan_md_writer "<doc-name>"` →
     `output/test-plan/<doc-name>-test-plan.md`, the file a reviewer reads
     in place. Runs regardless of `--docx`.
 
 15. **Generate the Word report — only if `--docx` was given**: `bash
-    ./.qa-orchestrator generation.test_plan_docx_writer "<doc-name>"`.
+    "$HOME/.qa-analyst/run.sh" generation.test_plan_docx_writer "<doc-name>"`.
     Without `--docx`, don't: a freshly generated Test Plan is often still a
     draft with `TBD` markers QA fills in by hand, so the Markdown report is
     the reviewable deliverable by default. No automatic PDF export either
@@ -242,6 +315,11 @@ requirement document could state.
 - **Every command here is bash syntax.** It still works verbatim from
   PowerShell (`bash` is callable as an external program), so only translate
   a step that uses bash-specific syntax beyond this pattern.
+- **Run every orchestrator command with the `Bash` tool.** The shim path
+  is written as `"$HOME/.qa-analyst/run.sh"` and bash expands `$HOME`
+  itself. If your session's only shell tool is PowerShell, use
+  `bash "$env:USERPROFILE/.qa-analyst/run.sh" <folder.module> …` instead —
+  the arguments are otherwise identical.
 - **Always write or edit `<doc-name>-test-plan.json` with `Write`/`Edit` —
   never a Bash-invoked script.** The `snapshot-output` and `validate-output`
   hooks match only `Write|Edit`; a Bash rewrite is invisible to both, so no

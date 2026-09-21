@@ -32,7 +32,7 @@ than a plausible-sounding invented name or date.
    (`output/requirement-analysis/<doc-name>-source.md`) for scope wording,
    stated timelines/releases, and project context lost in extraction
    (explicit in/out-of-scope statements, sprint plans). Fetch it yourself
-   via `bash ./.qa-orchestrator parsing.reading_vault_fetch` if absent —
+   via `bash "$HOME/.qa-analyst/run.sh" parsing.reading_vault_fetch` if absent —
    don't assume it's been run this session.
 3. **User-supplied extra instructions** passed with the command (resource
    names, environment details, target dates) — these always beat anything

@@ -19,8 +19,8 @@
 # PYTHONPATH=$CLAUDE_PLUGIN_ROOT explicitly (inherited from this hook's own
 # environment, which reliably has it -- orchestrator/ is bundled with the
 # plugin, not the workspace) rather than depending on cwd or the
-# ./.qa-orchestrator shim -- this hook can fire before any Bash call has run
-# in this workspace, so the shim isn't guaranteed to exist yet.
+# ~/.qa-analyst/run.sh shim -- this hook can fire before the bootstrap hook
+# has ever written that shim, so it isn't guaranteed to exist yet.
 
 set -uo pipefail
 

@@ -1,10 +1,16 @@
 ---
-description: Build (or preview) the Knowledge Catalog from the attached folder's Knowledge Base/ notes standalone — the generator agents build/refresh it automatically themselves, so this is a convenience, not a prerequisite
+description: Build (or preview) the Knowledge Catalog from this project's knowledge-base notes standalone — the generator agents build/refresh it automatically themselves, so this is a convenience, not a prerequisite
+argument-hint: "[--kb \"<folder>\"]"
 ---
 
-No arguments. Invoke the `knowledge-base-catalog` subagent.
+Parse `ARGUMENTS` for one optional piece: `--kb "<folder name>"` — the
+top-level folder in the project root holding the domain-background `.md`
+notes. Pass the value along to the subagent as a distinct piece; given, it
+catalogs that folder verbatim, omitted it falls back to finding
+`Knowledge Base/` by naming convention. Then invoke the
+`knowledge-base-catalog` subagent.
 
-Scans every `.md` file under `Knowledge Base/` and writes one catalog entry
+Scans every `.md` file under that folder and writes one catalog entry
 per file (name, purpose, description — never the file's full content) to
 `output/knowledge-base/catalog.json`. `requirement-analyzer`,
 `test-case-generator`, and `test-plan-generator` each build/refresh this

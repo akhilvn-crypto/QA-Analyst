@@ -1,12 +1,15 @@
-"""Resolves every user-supplied input by *convention*, from the folder the
-user attached in Cowork -- there is no `config/settings.json` to fill in.
+"""Resolves every user-supplied input from the project root -- there is no
+`config/settings.json` to fill in.
 
-The attached folder (the session's cwd, `paths.WORKSPACE_ROOT`) is the
-whole project: the client's vault of notes, and the home of every
-generated deliverable. Inside it, a fixed set of subfolders answers each
-question a settings file used to:
+The project root open in the editor (the session's cwd,
+`paths.WORKSPACE_ROOT`) is the whole project: the client's notes, and the
+home of every generated deliverable. The two input folders are normally
+named on the command itself (`--req "<folder>"`/`--kb "<folder>"`, which
+each agent passes down as this module's `folder_override`); when a flag is
+omitted, a fixed set of subfolder names answers the same question a
+settings file used to:
 
-    <attached folder>/
+    <project root>/
       Requirements/      requirement .md notes -- the sole requirement input (required)
       Knowledge Base/    general domain-background notes (optional)
       Branding/          header-logo.png / project-logo.png (optional; no bundled default)
@@ -18,16 +21,18 @@ resolve -- a vault's own naming habits never have to change to suit this
 plugin, and Cowork's case-sensitive Linux sandbox behaves the same as a
 Windows host.
 
-When a client vault names one of these folders something this convention
-match can't recognize at all (`Specs/` instead of any spelling of
-`Requirements`, say), `requirements_path`/`knowledge_base_path` take an
-optional `folder_override` -- an exact top-level folder name -- so an agent
-that has already listed the workspace root itself and used its own
-judgment to identify the right folder can hand that name straight through,
-without this module trying to be clever about it. There is nowhere to
-persist that choice (no settings file), so it's re-supplied on whichever
-call needs it, same as everything else here being resolved fresh rather
-than cached.
+`requirements_path`/`knowledge_base_path` take an optional
+`folder_override` -- an exact top-level folder name, used verbatim with no
+matching at all. It carries the user's own `--req`/`--kb` value, and also
+serves the case where a project names one of these folders something the
+convention match can't recognize (`Specs/` instead of any spelling of
+`Requirements`, say) and the invoking agent has listed the project root
+itself and used its judgment to identify the right one. Either way this
+module isn't clever about it: an override that isn't a directory resolves
+to `None` rather than falling back to a folder the caller didn't ask for.
+There is nowhere to persist that choice (no settings file), so it's
+re-supplied on whichever call needs it, same as everything else here being
+resolved fresh rather than cached.
 
 There is no handoff destination: deliverables are written straight into
 this same folder's `output/`, which is already where the user works.
@@ -78,10 +83,11 @@ def requirements_path(folder_override: str | None = None) -> Path | None:
     """The `Requirements/` subfolder -- `None` when the attached folder has
     none, meaning there is no requirement source to analyze.
 
-    `folder_override`, when given, is an exact top-level folder name to use
+    `folder_override`, when given (the command's own `--req "<folder>"`, or
+    an agent's auto-detected name), is an exact top-level folder name used
     instead of matching `Requirements` by convention -- see the module
-    docstring's folder-auto-detection note. `None` if that exact name isn't
-    a directory of the workspace either."""
+    docstring. `None` if that exact name isn't a directory of the project
+    root, never a silent fallback to a different folder."""
     if folder_override:
         candidate = workspace_root() / folder_override
         return candidate if candidate.is_dir() else None
@@ -89,9 +95,10 @@ def requirements_path(folder_override: str | None = None) -> Path | None:
 
 
 def knowledge_base_path(folder_override: str | None = None) -> Path | None:
-    """The `Knowledge Base/` subfolder -- `None` when absent. Optional: no
+    """The knowledge-base subfolder -- `None` when absent. Optional: no
     knowledge base simply means agents reason from the requirement text
-    alone. See `requirements_path` for `folder_override`."""
+    alone. See `requirements_path` for `folder_override`, which here
+    carries the command's `--kb "<folder>"`."""
     if folder_override:
         candidate = workspace_root() / folder_override
         return candidate if candidate.is_dir() else None
@@ -107,8 +114,8 @@ def branding_path() -> Path | None:
 
 
 def document_name() -> str:
-    """`<doc-name>` for every output path: the attached folder's own name
-    (e.g. `LinkGrid`), not the fixed `Requirements` subfolder's, which would
-    be identical for every project."""
+    """`<doc-name>` for every output path: the project root's own folder
+    name (e.g. `LinkGrid`), not the requirement subfolder's, which would be
+    identical for every project."""
     return workspace_root().resolve().name
 

@@ -100,7 +100,7 @@ what `clarification_log` already answers. Same-version rewrites count as
 in-run iteration — only the append-only invariants apply. `history/` is
 internal audit trail, never a client deliverable.
 
-`bash ./.qa-orchestrator validation.delta_report <doc-name>` gives an
+`bash "$HOME/.qa-analyst/run.sh" validation.delta_report <doc-name>` gives an
 advisory changed/missing/new signal before a delta re-analysis — advisory
 only; you judge.
 

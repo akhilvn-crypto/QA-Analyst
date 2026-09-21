@@ -25,7 +25,7 @@ resolved and, optionally, `--docx` and/or `--force`.
 
 2. **Run the writer.** From the project root:
    ```
-   bash ./.qa-orchestrator generation.clarification_sheet_writer "<doc-name>" [--docx] [--force]
+   bash "$HOME/.qa-analyst/run.sh" generation.clarification_sheet_writer "<doc-name>" [--docx] [--force]
    ```
    This is `orchestrator/generation/clarification_sheet_writer.py`: it
    always (re)writes
@@ -53,8 +53,13 @@ resolved and, optionally, `--docx` and/or `--force`.
 
 - **Every command here is bash syntax**, and works verbatim from PowerShell
   too (`bash` is callable as an external program).
+- **Run every orchestrator command with the `Bash` tool.** The shim path
+  is written as `"$HOME/.qa-analyst/run.sh"` and bash expands `$HOME`
+  itself. If your session's only shell tool is PowerShell, use
+  `bash "$env:USERPROFILE/.qa-analyst/run.sh" <folder.module> …` instead —
+  the arguments are otherwise identical.
 - **Never invoke `python -m orchestrator.generation.clarification_sheet_writer`
-  directly** — always go through `./.qa-orchestrator`, which puts
+  directly** — always go through the `~/.qa-analyst/run.sh` shim, which puts
   `orchestrator/` on `PYTHONPATH` regardless of cwd.
 - **Never write, edit, or reformat either sheet's content.** This agent has
   no `Write` tool for a reason — the questions come straight from the

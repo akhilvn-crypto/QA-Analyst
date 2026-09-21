@@ -6,7 +6,7 @@ Registered in `hooks/hooks.json` (plugin form — not a project
 
 | Hook | Event | Does |
 |---|---|---|
-| `plugin-bootstrap` | SessionStart **and** PreToolUse `Bash\|PowerShell` | Picks a working interpreter (`python3`, then `python`) and bakes it into the `./.qa-orchestrator` shim, installs Python deps once (retrying `--user` / `--break-system-packages` for Cowork's Linux sandbox), gitignores those artifacts. Pure side effect, always silent exit 0 |
+| `plugin-bootstrap` | SessionStart **and** PreToolUse `Bash\|PowerShell` | Picks a working interpreter (`python3`, then `python`) and bakes it into the per-user `~/.qa-analyst/run.sh` shim, installs Python deps once (retrying `--user` / `--break-system-packages` for Cowork's Linux sandbox). **Writes nothing into the user's working directory.** Pure side effect, always silent exit 0 |
 | `snapshot-output` | PreToolUse `Write\|Edit` | Archives an existing output JSON to `history/<name>-v<version>.json` before overwrite. Never denies |
 | `validate-output` | PostToolUse `Write\|Edit` | Runs `validation.validate` on a written output JSON. **Blocks** on errors, informs on warnings, silent when clean |
 | `format-report` | PostToolUse `Bash\|PowerShell` | After a docx writer runs, renders to PDF/JPEG via Word COM to confirm pagination, then discards. Smoke test only — never changes formatting. Silently skips where Word isn't available (e.g. Cowork's Linux sandbox) |
@@ -18,8 +18,8 @@ the latter.
 ## Environment
 
 `$CLAUDE_PLUGIN_ROOT` is reliably set for hook subprocesses but **not** for
-agent-issued Bash — which is why `plugin-bootstrap` writes the cwd-relative
-`./.qa-orchestrator` shim with the plugin's own install root baked in, and
+agent-issued Bash — which is why `plugin-bootstrap` writes the
+`~/.qa-analyst/run.sh` shim with the plugin's own install root baked in, and
 why `validate-output` passes `PYTHONPATH` explicitly to its inner Python
 rather than relying on cwd or the shim (it can fire before any Bash call
 has run). `orchestrator/` ships bundled inside this plugin (see
