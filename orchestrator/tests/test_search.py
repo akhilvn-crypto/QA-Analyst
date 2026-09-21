@@ -6,7 +6,7 @@ offer: what comes back is the note's own text at its own path, the same
 query over unchanged notes ranks the same way twice, and a missing folder
 or empty result is an ordinary empty answer rather than an error. This
 module now only ever reads `Requirements/` -- the general domain-background
-source (`Knowledge Base/`) went to `knowledge_base.catalog` instead.
+source (`Knowledge Base/`) is read whole by the agents themselves instead.
 """
 
 import pytest

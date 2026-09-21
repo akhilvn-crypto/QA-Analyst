@@ -38,8 +38,8 @@ There is no handoff destination: deliverables are written straight into
 this same folder's `output/`, which is already where the user works.
 
 Nothing is cached -- every call reads the folder as it is right now, so a
-subfolder created mid-session (e.g. adding `Knowledge Base/` before
-`/build-kb-catalog`) is picked up by the very next call.
+subfolder created mid-session (e.g. adding `Knowledge Base/` before a
+generator agent runs) is picked up by the very next call.
 """
 
 import re

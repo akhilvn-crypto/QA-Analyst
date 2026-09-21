@@ -113,20 +113,6 @@ def exported_reports_dir() -> Path:
     return output_dir("reports")
 
 
-def kb_catalog_path() -> Path:
-    """The Knowledge Catalog `/build-kb-catalog` writes and every generator
-    agent reads directly with `Read` -- name/purpose/description per note
-    under the attached folder's `Knowledge Base/` subfolder, plus that
-    folder's own resolved path so a reader knows where to `Read` a named
-    file from. Not a client deliverable (no `meta`/`document_control`
-    shape, never snapshotted, validated, or logged) -- an internal working
-    file, same tier as the staged `<doc-name>-source.md`, which is why it
-    lives under `output/` without a per-document name: there is exactly one
-    Knowledge Base per workspace, same singular assumption as
-    `Requirements/`."""
-    return WORKSPACE_ROOT / "output" / "knowledge-base" / "catalog.json"
-
-
 def _logo_path(filename: str) -> Path:
     from orchestrator.utils.workspace import branding_path, workspace_root
 

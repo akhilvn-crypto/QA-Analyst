@@ -1,6 +1,6 @@
 {
   "name": "qa-analyst",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Autonomous QA copilot for VS Code / Claude Code: requirement analysis, test planning, and test-case generation straight from the project folder you have open -- name its requirement and knowledge-base folders with --req \"<folder>\" and --kb \"<folder>\". No settings file, and nothing written into your folders but the deliverables. Test automation is out of scope -- handled by a separate agent setup that consumes this plugin's generated test cases.",
   "author": {
     "name": "Akhil VN"
